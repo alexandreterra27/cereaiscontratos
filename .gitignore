@@ -1,0 +1,13 @@
+# sistema
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+.env
+.env.*
+# Supabase CLI (se usar localmente)
+supabase/.branches/
+supabase/.temp/
+
+# Carga inicial com os contratos reais: usar uma vez no Supabase e NÃO subir ao GitHub
+supabase/seed.sql

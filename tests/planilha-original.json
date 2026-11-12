@@ -1,0 +1,400 @@
+[
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 1",
+  "numero": "0000520286",
+  "volumeKg": 120000,
+  "preco": 143.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 1.1",
+    "volumeKg": 120000,
+    "preco": 130.26,
+    "fretePrev": 10,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 2",
+  "numero": "0000525162",
+  "volumeKg": 240000,
+  "preco": 145.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 2.1",
+    "volumeKg": 120000,
+    "preco": 132.12,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 2.2",
+    "volumeKg": 120000,
+    "preco": 131.0,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 3",
+  "numero": "1000562276",
+  "volumeKg": 1200000,
+  "preco": null,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 3.1",
+    "volumeKg": 900000,
+    "preco": null,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 3.2",
+    "volumeKg": 300000,
+    "preco": null,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 4",
+  "numero": "1000586362",
+  "volumeKg": 300000,
+  "preco": 148.5,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 4.1",
+    "volumeKg": 90000,
+    "preco": 132.13,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 4.2",
+    "volumeKg": 60000,
+    "preco": 132.13,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 4.3",
+    "volumeKg": 120000,
+    "preco": 133.27,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 4.4",
+    "volumeKg": 30000,
+    "preco": 130.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 5",
+  "numero": "3697413726",
+  "volumeKg": 1224600,
+  "preco": null,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 5.1",
+    "volumeKg": 180000,
+    "preco": 128.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 5.2",
+    "volumeKg": 300000,
+    "preco": 128.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 5.3",
+    "volumeKg": 30400,
+    "preco": 130.26,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 5.4",
+    "volumeKg": 80000,
+    "preco": 128.26,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 5.5",
+    "volumeKg": 300000,
+    "preco": null,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 5.6",
+    "volumeKg": 300000,
+    "preco": null,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 6",
+  "numero": "4490313726",
+  "volumeKg": 600000,
+  "preco": 139.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 6.1",
+    "volumeKg": 600000,
+    "preco": 127.5,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 7",
+  "numero": "4554413726",
+  "volumeKg": 300000,
+  "preco": 138.5,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 7.1",
+    "volumeKg": 300000,
+    "preco": 127.25,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 8",
+  "numero": "465605",
+  "volumeKg": 120000,
+  "preco": 140.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 8.1",
+    "volumeKg": 72000,
+    "preco": 125.51,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 8.2",
+    "volumeKg": 36000,
+    "preco": 131.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 8.3",
+    "volumeKg": 12000,
+    "preco": 130.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 9",
+  "numero": "481466",
+  "volumeKg": 1000000,
+  "preco": 142.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 9.1",
+    "volumeKg": 1000000,
+    "preco": 128.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 10",
+  "numero": "481541",
+  "volumeKg": 500000,
+  "preco": 142.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 10.1",
+    "volumeKg": 152400,
+    "preco": 125.5,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 10.2",
+    "volumeKg": 300000,
+    "preco": 130.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 10.3",
+    "volumeKg": 47600,
+    "preco": 130.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 11",
+  "numero": "491043",
+  "volumeKg": 300000,
+  "preco": 144.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 11.1",
+    "volumeKg": 300000,
+    "preco": 127.0,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 12",
+  "numero": "491109",
+  "volumeKg": 120000,
+  "preco": 144.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 12.1",
+    "volumeKg": 120000,
+    "preco": 126.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 13",
+  "numero": "64850",
+  "volumeKg": 600000,
+  "preco": 133.5,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 13.1",
+    "volumeKg": 452400,
+    "preco": 120.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 13.2",
+    "volumeKg": 147600,
+    "preco": 125.5,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 14",
+  "numero": "967180",
+  "volumeKg": 300000,
+  "preco": 140.8,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 14.1",
+    "volumeKg": 300000,
+    "preco": 127.5,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 15",
+  "numero": "967220",
+  "volumeKg": 300000,
+  "preco": 140.6,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 15.1",
+    "volumeKg": 180000,
+    "preco": 126.26,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 15.2",
+    "volumeKg": 120000,
+    "preco": 126.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 16",
+  "numero": "967255",
+  "volumeKg": 180000,
+  "preco": 140.6,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 16.1",
+    "volumeKg": 180000,
+    "preco": 127.26,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ },
+ {
+  "produto": "soja",
+  "comprador": "COMPRADOR 17",
+  "numero": "975910",
+  "volumeKg": 450000,
+  "preco": 146.0,
+  "vendedores": [
+   {
+    "nome": "PRODUTOR 17.1",
+    "volumeKg": 150000,
+    "preco": 132.27,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 17.2",
+    "volumeKg": 180000,
+    "preco": 131.0,
+    "fretePrev": null,
+    "freteReal": null
+   },
+   {
+    "nome": "PRODUTOR 17.3",
+    "volumeKg": 120000,
+    "preco": 130.0,
+    "fretePrev": null,
+    "freteReal": null
+   }
+  ]
+ }
+]

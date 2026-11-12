@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema de Vinculações – Grupo Parceiro Agronegócios</title>
+<link rel="icon" type="image/png" href="assets/logo-grupo-parceiro.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div class="login" id="login" hidden>
+  <form class="login-box" id="loginForm" autocomplete="on">
+    <img src="assets/logo-grupo-parceiro.png" alt="Grupo Parceiro" class="login-logo">
+    <h2>Sistema de Vinculações</h2>
+    <p class="note">Grupo Parceiro Agronegócios · Cereais</p>
+    <label class="f">E-mail<input type="email" id="loginEmail" required autocomplete="username"></label>
+    <label class="f">Senha<input type="password" id="loginSenha" required autocomplete="current-password"></label>
+    <button class="btn pri" type="submit" id="btnEntrar">Entrar</button>
+    <button class="btn linkbtn" type="button" id="btnEsqueci">Esqueci minha senha</button>
+    <p class="note" id="loginMsg" role="alert"></p>
+  </form>
+</div>
+
+<header>
+  <div class="logo"><img src="assets/logo-grupo-parceiro.png" alt="Grupo Parceiro"></div>
+  <div>
+    <h1>Vinculações de Contratos – Comprador x Vendedores</h1>
+    <div class="sub">Parceiro Agronegócios · Cereais</div>
+  </div>
+  <nav id="nav">
+    <button data-v="contratos" class="on">Contratos</button>
+    <button data-v="novo">+ Novo contrato</button>
+    <button data-v="param">Parâmetros</button>
+  </nav>
+  <div class="userbox" id="userBox" hidden><span id="userEmail"></span><button class="btn sm" id="btnSair" type="button">Sair</button></div>
+</header>
+
+<div class="faixa" aria-label="# O Agro não Para · Grupo Parceiro Agronegócios · Varginha MG"><div class="mq"><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span></div></div>
+<main>
+  <div id="status"></div>
+
+  <!-- ===================== CONTRATOS ===================== -->
+  <section class="view on" id="v-contratos">
+    <div class="kpis" id="kpis"></div>
+    <div class="toolbar">
+      <div class="seg" id="fProd">
+        <button data-p="" class="on">Todos</button><button data-p="milho">Milho</button><button data-p="soja">Soja</button><button data-p="sorgo">Sorgo</button>
+      </div>
+      <select id="fStatus">
+        <option value="">Todas as situações</option>
+        <option value="afixar">Preço a fixar</option>
+        <option value="saldo">Com saldo a vincular</option>
+        <option value="fretepend">Frete pendente</option>
+        <option value="freteok">Frete realizado</option>
+        <option value="prejuizo">Com prejuízo</option>
+      </select>
+      <input type="search" id="fBusca" placeholder="Buscar comprador, vendedor ou nº do contrato" style="min-width:280px">
+      <span class="grow"></span>
+      <button class="btn" id="btnCopy">Copiar tabela (Excel)</button>
+    </div>
+    <div class="tablewrap"><table class="grid" id="tbl"></table></div>
+    <p class="note">Lucro previsto = (preço comprador − preço vendedor − frete previsto) × sacas. Lucro realizado = mesma conta com o frete realizado. A última coluna soma o crédito presumido ao lucro realizado. Digite o frete realizado (R$/sc) direto na coluna amarela e tecle Enter: o resultado aparece na hora. Para apagar, limpe o campo e tecle Enter. Frete: previsto − realizado = (frete previsto − frete realizado) × sacas: positivo é lucro no frete (gastou menos que o previsto), negativo é prejuízo no frete.</p>
+  </section>
+
+  <!-- ===================== NOVO / EDITAR ===================== -->
+  <section class="view" id="v-novo">
+    <div class="stack">
+      <div class="card">
+        <h2 id="formTitle">Novo contrato</h2>
+        <div class="row" style="margin-bottom:14px">
+          <span class="note" style="font-weight:600">Produto:</span>
+          <div class="prodpick" id="prodPick">
+            <button type="button" data-p="milho" class="on">Milho</button>
+            <button type="button" data-p="soja">Soja</button>
+            <button type="button" data-p="sorgo">Sorgo</button>
+          </div>
+        </div>
+        <h2 style="margin-top:6px">Comprador</h2>
+        <div class="fgrid">
+          <label class="f">Data<input type="date" id="cData"></label>
+          <label class="f">Nº contrato<input type="text" id="cNum"></label>
+          <label class="f" style="grid-column:span 2">Empresa compradora<input type="text" id="cComp" list="dlComp"></label>
+          <label class="f">Cidade de entrega<input type="text" id="cCid" value="SANTOS/SP" list="dlCid"></label>
+          <label class="f">Volume (kg)<input type="text" id="cKg" inputmode="decimal"></label>
+          <label class="f">Preço (R$/sc)<input type="text" id="cPreco" inputmode="decimal" placeholder="em branco = A FIXAR"></label>
+        </div>
+        <div class="note" id="cInfo" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <h2 style="margin:0">Vendedores vinculados</h2>
+          <button class="btn" id="addVend" type="button">+ Adicionar vendedor</button>
+        </div>
+        <div style="overflow:auto">
+        <table class="vend">
+          <thead><tr><th style="width:130px">Data</th><th style="width:110px">Nº contrato</th><th>Produtor / empresa</th><th style="width:150px">Cidade de retirada</th><th style="width:120px">Volume (kg)</th><th style="width:80px">Sacas</th><th style="width:120px">Preço (R$/sc)</th><th style="width:110px">Frete previsto (R$/sc)</th><th style="width:40px"></th></tr></thead>
+          <tbody id="vendBody"></tbody>
+        </table>
+        </div>
+        <div class="row" style="margin-top:10px"><span class="note">Saldo a vincular:</span> <span class="saldo" id="saldoInfo">-</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Prévia</h2>
+        <div class="tablewrap" style="max-height:none"><table class="grid" id="preview"></table></div>
+      </div>
+
+      <div class="row">
+        <button class="btn pri" id="btnSalvar" type="button">Salvar contrato</button>
+        <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+        <span class="note" id="formMsg"></span>
+      </div>
+    </div>
+    <datalist id="dlComp"></datalist><datalist id="dlCid"></datalist><datalist id="dlVend"></datalist>
+  </section>
+
+  <!-- ===================== PARÂMETROS ===================== -->
+  <section class="view" id="v-param">
+    <div class="card" style="max-width:640px">
+      <h2>Parâmetros por produto</h2>
+      <table class="vend" id="paramTbl">
+        <thead><tr><th>Produto</th><th>Kg por saca</th><th>Crédito presumido (%)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="row" style="margin-top:12px"><button class="btn pri" id="btnParam">Salvar parâmetros</button><span class="note" id="paramMsg"></span></div>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal"><div class="box"><h2 id="mTitle"></h2><p id="mText" style="color:var(--muted)"></p><div class="row" style="justify-content:flex-end"><button class="btn" id="mNo">Cancelar</button><button class="btn danger" id="mYes">Excluir</button></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

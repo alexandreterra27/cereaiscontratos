@@ -1,0 +1,11 @@
+{
+  "name": "vinculacoes-cereais",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de vinculação de contratos comprador x vendedores (milho, soja, sorgo) – Grupo Parceiro Agronegócios",
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes serve -l 5500 .",
+    "test": "node --test tests/calc.test.mjs"
+  }
+}
