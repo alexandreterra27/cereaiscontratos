@@ -83,7 +83,9 @@ export function traduzErro(error) {
   const m = String(error.message || error);
   if (/Invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
   if (/Email not confirmed/i.test(m)) return "E-mail ainda não confirmado. Veja sua caixa de entrada.";
-  if (/JWT|not authorized|permission denied|row-level security/i.test(m)) return "Sem permissão. Entre novamente.";
+  if (/row-level security|permission denied/i.test(m)) return "Seu perfil de acesso não permite essa operação.";
+  if (/JWT|not authorized/i.test(m)) return "Sessão expirada. Entre novamente.";
+  if (/banned/i.test(m)) return "Usuário inativo. Fale com o administrador.";
   if (/Failed to fetch|NetworkError/i.test(m)) return "Sem conexão com o servidor.";
   return m;
 }
@@ -94,7 +96,7 @@ export async function sessaoAtual() {
   return data.session;
 }
 export function aoMudarSessao(cb) {
-  return supabase.auth.onAuthStateChange((_evento, sessao) => cb(sessao));
+  return supabase.auth.onAuthStateChange((evento, sessao) => cb(sessao, evento));
 }
 export async function entrar(email, senha) {
   const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
@@ -153,11 +155,13 @@ export async function excluirContrato(id) {
 }
 
 export async function salvarFreteRealizado(vendedorId, valor) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("contrato_vendedores")
     .update({ frete_realizado: valor })
-    .eq("id", vendedorId);
+    .eq("id", vendedorId)
+    .select("id");
   if (error) throw falha(error, "Não foi possível salvar o frete.");
+  if (!data || !data.length) throw new Error("Seu perfil não permite lançar frete.");
 }
 
 export async function salvarParametros(p) {
@@ -166,8 +170,9 @@ export async function salvarParametros(p) {
     kg_saca: p.kgSaca[produto],
     credito_presumido: p.credito[produto],
   }));
-  const { error } = await supabase.from("parametros_produto").upsert(linhas, { onConflict: "produto" });
+  const { data, error } = await supabase.from("parametros_produto").upsert(linhas, { onConflict: "produto" }).select("produto");
   if (error) throw falha(error, "Não foi possível salvar os parâmetros.");
+  if (!data || !data.length) throw new Error("Somente administradores alteram os parâmetros.");
 }
 
 // ---------- tempo real ----------
@@ -185,4 +190,29 @@ export function acompanharMudancas(aoMudar) {
     .on("postgres_changes", { event: "*", schema: "public", table: "parametros_produto" }, avisar)
     .subscribe();
   return () => supabase.removeChannel(canal);
+}
+
+// ---------- perfil e usuários ----------
+export const NOME_PERFIL = { admin: "Administrador", comercial: "Comercial", consulta: "Consulta" };
+
+/** Perfil do usuário logado: { perfil, nome, ativo } ou null. */
+export async function meuPerfil(userId) {
+  const { data, error } = await supabase.from("perfis").select("perfil, nome, ativo").eq("user_id", userId).maybeSingle();
+  if (error) throw falha(error, "Não foi possível ler seu perfil.");
+  return data;
+}
+
+/** Chama a função segura admin-usuarios (só administradores). */
+export async function adminUsuarios(acao, dados = {}) {
+  const { data, error } = await supabase.functions.invoke("admin-usuarios", { body: { acao, ...dados } });
+  if (error) {
+    let msg = "";
+    try {
+      const corpo = await error.context.json();
+      msg = corpo && corpo.erro;
+    } catch (_) {}
+    throw new Error(msg || traduzErro(error) || "Falha na função de usuários.");
+  }
+  if (data && data.erro) throw new Error(data.erro);
+  return data;
 }

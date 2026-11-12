@@ -13,7 +13,20 @@ Sistema web para vincular **contratos de venda (comprador)** aos **contratos de 
 - **Quadros do topo:** sacas fechadas por produto, lucro previsto, lucro realizado, crédito presumido, frete previsto x realizado, fretes pendentes e saldo a vincular. Cada quadro explica a própria conta ao passar o mouse.
 - **+ Novo contrato:** cadastro do comprador e dos vendedores, com cidade de entrega e cidade de retirada. Mostra uma prévia dos cálculos antes de salvar.
 - **Parâmetros:** kg por saca e % de crédito presumido por produto.
-- **Login:** só usuários cadastrados entram. Os dados ficam no Supabase (PostgreSQL).
+- **Usuários (só administrador):** criar usuário com e-mail e senha, definir o perfil, redefinir senha, enviar link de redefinição por e-mail, desativar e excluir.
+- **Login e Minha senha:** só usuários cadastrados e ativos entram, e cada um pode trocar a própria senha. Os dados ficam no Supabase (PostgreSQL).
+
+### Perfis de acesso
+
+| | Administrador | Comercial | Consulta |
+|---|:-:|:-:|:-:|
+| Ver contratos, quadros e relatório | ✓ | ✓ | ✓ |
+| Lançar, editar e excluir contratos | ✓ | ✓ | – |
+| Lançar frete realizado | ✓ | ✓ | – |
+| Alterar parâmetros | ✓ | – | – |
+| Gerenciar usuários | ✓ | – | – |
+
+As permissões valem **no banco** (regras RLS), não só na tela. Usuário criado direto no painel do Supabase entra como **Consulta**. Sempre existe pelo menos um administrador ativo.
 
 ### Regras de cálculo
 
@@ -45,6 +58,8 @@ vinculacoes-cereais/
 ├─ assets/logo-grupo-parceiro.png
 ├─ supabase/
 │  ├─ migrations/20261112000000_estrutura_inicial.sql   tabelas, segurança, função e relatório
+│  ├─ migrations/20261112150000_perfis_de_acesso.sql    perfis e regras por perfil
+│  ├─ functions/admin-usuarios/index.ts                 função segura que cria e gerencia usuários
 │  └─ seed.sql                 carga dos 17 contratos atuais (NÃO vai para o GitHub)
 ├─ tests/                      testes dos cálculos contra a planilha original
 ├─ docs/modelo-de-dados.md     explicação das tabelas
@@ -57,7 +72,7 @@ vinculacoes-cereais/
 
 ## Passo a passo para colocar no ar
 
-> **Situação atual:** o projeto Supabase **vinculacoes-cereais** (região São Paulo) já foi criado, com a estrutura e os 17 contratos carregados, e o `js/config.js` já está preenchido. Os passos 1 e 3 abaixo servem só para recriar o banco em outro projeto. Faltam os passos 2, 6 e 7.
+> **Situação atual:** o projeto Supabase **vinculacoes-cereais** (região São Paulo) já está pronto: estrutura, perfis, função `admin-usuarios` e os 17 contratos carregados. O primeiro usuário já é Administrador e o `js/config.js` já está preenchido. Os passos 1 a 3 servem só para recriar tudo em outro projeto. Faltam os passos 6 e 7, que são publicar e ajustar a URL.
 
 ### 1. Criar o banco no Supabase
 
@@ -75,7 +90,9 @@ vinculacoes-cereais/
 ### 2. Criar os usuários (login)
 
 1. Em **Authentication → Sign In / Providers**, deixe **Email** ligado e **desligue "Allow new users to sign up"**. Assim ninguém cria conta sozinho.
-2. Em **Authentication → Users → Add user → Create new user**, informe o e-mail e a senha de cada pessoa e marque **Auto Confirm User**.
+2. Crie **o primeiro usuário** em **Authentication → Users → Add user → Create new user**, marcando **Auto Confirm User**. Rode a migration `20261112150000_perfis_de_acesso.sql` depois disso: o primeiro usuário existente vira **Administrador**.
+3. Publique a função `supabase/functions/admin-usuarios`. Pelo painel, use **Edge Functions → Deploy a new function**, com o nome `admin-usuarios` e **Verify JWT desligado**, porque a própria função confere o login e o perfil. Pela CLI, use `supabase functions deploy admin-usuarios --no-verify-jwt`.
+4. Daí em diante, os outros usuários são criados pela tela **Usuários** do sistema.
 
 ### 3. Ligar o sistema ao seu Supabase
 

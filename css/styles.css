@@ -41,7 +41,7 @@ main{padding:18px 22px 60px;max-width:1800px;margin:0 auto}
 .kpi .s{font-size:12px;color:var(--muted);margin-top:4px}
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .toolbar .grow{flex:1}
-select,input[type=text],input[type=date],input[type=search]{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);min-width:0}
+select,input[type=text],input[type=date],input[type=search],input[type=email],input[type=password]{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);min-width:0}
 input:focus,select:focus{outline:2px solid #9cc79f;border-color:#9cc79f}
 .btn{font:inherit;font-weight:600;padding:8px 14px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
 .btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
@@ -111,3 +111,20 @@ table.grid input.frIn.saving{opacity:.5}
 .linkbtn{border:0;background:none;color:var(--brand);font-weight:500;padding:4px}
 #loginMsg.err{color:var(--prej)}
 .kprod .prow .mono{white-space:nowrap}
+
+/* ---------- perfis ---------- */
+body.perfil-consulta .so-edicao{display:none !important}
+body:not(.perfil-admin) .so-admin{display:none !important}
+body.perfil-admin .so-nao-admin{display:none !important}
+.uinfo{display:flex;flex-direction:column;align-items:flex-end;gap:2px;line-height:1.1}
+.perfil-tag{background:rgba(255,255,255,.18);color:#fff;font-size:10px}
+.perfil-tag.admin{background:#e6c37a;color:#3b2c06}
+.usr-grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:14px;align-items:start}
+@media (max-width:900px){.usr-grid{grid-template-columns:1fr}}
+table.perm td:not(:first-child),table.perm th:not(:first-child){text-align:center}
+table.perm td:not(:first-child){font-weight:700;color:var(--lucro)}
+#tblUsuarios td{white-space:nowrap}
+#tblUsuarios select{padding:4px 6px}
+.st-on{color:var(--lucro);font-weight:600}.st-off{color:var(--prej);font-weight:600}
+.btn.pri.danger,.modal .btn.pri{color:#fff}
+table.grid input.frIn:disabled{background:transparent;border-color:transparent;color:var(--ink)}

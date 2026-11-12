@@ -46,9 +46,21 @@ Grava o contrato e a lista completa de vendedores numa só operação. Vendedore
 ## View `vw_vinculacoes`
 Uma linha por vendedor, já com sacas, valor total, diferença, fretes, lucro previsto, lucro realizado, crédito presumido e situação (LUCRO ou PREJUÍZO). Respeita as regras de segurança (`security_invoker`).
 
+## `perfis`
+| coluna | tipo | descrição |
+|---|---|---|
+| user_id | uuid (PK, FK auth.users) | usuário do Supabase Auth |
+| nome, email | text | para exibição |
+| perfil | text | `admin`, `comercial` ou `consulta` |
+| ativo | boolean | inativo não entra (também fica bloqueado no Auth) |
+
+Novo usuário do Auth recebe perfil `consulta` automaticamente (trigger `criar_perfil`).
+Ninguém altera `perfis` pelo navegador: só a função `admin-usuarios`, que roda no servidor com a chave service_role e confere se quem chamou é administrador ativo.
+
 ## Segurança (RLS)
 - Visitantes sem login (`anon`) não leem nem gravam nada.
-- Usuários logados (`authenticated`) leem e gravam tudo.
-- Cadastro aberto deve ficar **desligado** no Supabase. Os usuários são criados pelo administrador.
-
-Se no futuro precisar de perfis diferentes (por exemplo, quem só consulta e quem lança), dá para criar uma tabela `perfis` e ajustar as políticas.
+- Logado **sem perfil ativo**: não lê nada.
+- **consulta**: só lê.
+- **comercial**: lê e grava contratos, vendedores e fretes; só lê os parâmetros.
+- **admin**: tudo, inclusive parâmetros e, pela função, usuários.
+- A regra usa `privado.perfil_atual()`, uma função num schema que não é exposto pela API.

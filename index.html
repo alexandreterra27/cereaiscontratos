@@ -33,10 +33,15 @@
   </div>
   <nav id="nav">
     <button data-v="contratos" class="on">Contratos</button>
-    <button data-v="novo">+ Novo contrato</button>
+    <button data-v="novo" class="so-edicao">+ Novo contrato</button>
     <button data-v="param">Parâmetros</button>
+    <button data-v="usuarios" class="so-admin">Usuários</button>
   </nav>
-  <div class="userbox" id="userBox" hidden><span id="userEmail"></span><button class="btn sm" id="btnSair" type="button">Sair</button></div>
+  <div class="userbox" id="userBox" hidden>
+    <span class="uinfo"><span id="userEmail"></span><span class="tag perfil-tag" id="userPerfil"></span></span>
+    <button class="btn sm" id="btnMinhaSenha" type="button">Minha senha</button>
+    <button class="btn sm" id="btnSair" type="button">Sair</button>
+  </div>
 </header>
 
 <div class="faixa" aria-label="# O Agro não Para · Grupo Parceiro Agronegócios · Varginha MG"><div class="mq"><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span><span class="mq-item"><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira do Brasil"><rect width="70" height="49" fill="#009c3b"/><path d="M35 5 L65 24.5 L35 44 L5 24.5Z" fill="#ffdf00"/><circle cx="35" cy="24.5" r="10.5" fill="#002776"/><path d="M24.8 22.2 Q35 19.2 45.1 26.6 L44.8 28.3 Q35 21.4 24.6 24.2Z" fill="#fff"/></svg><svg class="flag" viewBox="0 0 70 49" aria-label="Bandeira de Minas Gerais"><rect width="70" height="49" fill="#fff"/><path d="M35 8 L49 34 L21 34Z" fill="none" stroke="#e1251b" stroke-width="5.5" stroke-linejoin="miter"/><path d="M14 10 Q35 1 56 10" fill="none" stroke="#e1251b" stroke-width="1.6" stroke-dasharray="2.2 1.4"/></svg><b># O Agro não Para</b><i>·</i>Grupo Parceiro Agronegócios<i>·</i>Varginha MG</span></div></div>
@@ -127,12 +132,60 @@
         <thead><tr><th>Produto</th><th>Kg por saca</th><th>Crédito presumido (%)</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="row" style="margin-top:12px"><button class="btn pri" id="btnParam">Salvar parâmetros</button><span class="note" id="paramMsg"></span></div>
+      <div class="row" style="margin-top:12px"><button class="btn pri so-admin" id="btnParam">Salvar parâmetros</button><span class="note" id="paramMsg"></span></div>
+      <p class="note so-nao-admin">Somente administradores alteram os parâmetros.</p>
+    </div>
+  </section>
+
+  <!-- ===================== USUÁRIOS (admin) ===================== -->
+  <section class="view" id="v-usuarios">
+    <div class="usr-grid">
+      <div class="card">
+        <h2>Novo usuário</h2>
+        <form id="formUsuario" class="stack" autocomplete="off">
+          <label class="f">Nome<input type="text" id="uNome" placeholder="ex.: João da Silva"></label>
+          <label class="f">E-mail<input type="email" id="uEmail" required placeholder="nome@grupoparceiro.com" autocomplete="off"></label>
+          <label class="f">Senha inicial
+            <span class="row" style="gap:6px;flex-wrap:nowrap">
+              <input type="text" id="uSenha" required minlength="8" placeholder="mínimo 8 caracteres" autocomplete="new-password" style="flex:1">
+              <button type="button" class="btn sm" id="uGerar">Gerar</button>
+            </span>
+          </label>
+          <label class="f">Perfil de acesso
+            <select id="uPerfil">
+              <option value="consulta">Consulta – só visualiza</option>
+              <option value="comercial" selected>Comercial – lança contratos e fretes</option>
+              <option value="admin">Administrador – tudo, inclusive usuários</option>
+            </select>
+          </label>
+          <div class="row"><button class="btn pri" type="submit" id="uCriar">Criar usuário</button><span class="note" id="uMsg"></span></div>
+          <p class="note">Anote a senha e passe para a pessoa. Ela pode trocá-la depois em <b>Minha senha</b>.</p>
+        </form>
+      </div>
+      <div class="card">
+        <h2>O que cada perfil pode fazer</h2>
+        <table class="vend perm">
+          <thead><tr><th></th><th>Administrador</th><th>Comercial</th><th>Consulta</th></tr></thead>
+          <tbody>
+            <tr><td>Ver contratos, quadros e relatório</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Copiar tabela para o Excel</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Lançar, editar e excluir contratos</td><td>✓</td><td>✓</td><td>–</td></tr>
+            <tr><td>Lançar frete realizado</td><td>✓</td><td>✓</td><td>–</td></tr>
+            <tr><td>Alterar parâmetros (kg/saca, crédito)</td><td>✓</td><td>–</td><td>–</td></tr>
+            <tr><td>Criar usuários, mudar perfis e senhas</td><td>✓</td><td>–</td><td>–</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:10px">Usuário <b>inativo</b> não consegue entrar, mas o histórico dele continua no sistema. Sempre fica pelo menos um administrador ativo.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="margin:0">Usuários cadastrados</h2><button class="btn sm" id="uAtualizar" type="button">Atualizar lista</button></div>
+      <div style="overflow:auto"><table class="vend" id="tblUsuarios"></table></div>
     </div>
   </section>
 </main>
 
-<div class="modal" id="modal"><div class="box"><h2 id="mTitle"></h2><p id="mText" style="color:var(--muted)"></p><div class="row" style="justify-content:flex-end"><button class="btn" id="mNo">Cancelar</button><button class="btn danger" id="mYes">Excluir</button></div></div></div>
+<div class="modal" id="modal"><div class="box"><h2 id="mTitle"></h2><div id="mText" style="color:var(--muted);margin:0 0 14px"></div><div class="row" style="justify-content:flex-end"><button class="btn" id="mNo">Cancelar</button><button class="btn danger" id="mYes">Excluir</button></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script type="module" src="js/app.js"></script>

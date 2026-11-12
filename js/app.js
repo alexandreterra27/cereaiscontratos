@@ -5,7 +5,9 @@
 import { PRODUTOS as PRODS, NOME_PRODUTO as PNAME, parametrosPadrao, isN, parseBR, kgSaca, creditoPresumido, calcularContrato } from "./calc.js";
 import * as api from "./api.js";
 
-let contratos=[], params=parametrosPadrao(), editId=null, loaded=false, usuario=null, pararTempoReal=null;
+let contratos=[], params=parametrosPadrao(), editId=null, loaded=false, usuario=null, perfil=null, pararTempoReal=null, usuarios=[];
+const podeEditar=()=>perfil==="admin"||perfil==="comercial";
+const ehAdmin=()=>perfil==="admin";
 let fProd="";
 
 const $=s=>document.querySelector(s);
@@ -64,13 +66,13 @@ function renderTable(){
     h+=`<tr class="buyer"><td>${prodTag(c.produto)}</td><td>COMPRADOR</td><td>${D(c.data)}</td><td>${esc(c.numero)}</td><td>${esc(c.comprador)}</td><td>${esc(c.cidade)}</td>`+
       `<td class="n">${N0(c.volumeKg)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td>`+
       `<td class="n">${N0(k.saldoKg)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
-      `<td><div class="actions"><button class="btn sm" data-edit="${esc(c.id)}">Editar</button><button class="btn sm danger" data-del="${esc(c.id)}">Excluir</button></div></td></tr>`;
+      `<td><div class="actions"><button class="btn sm so-edicao" data-edit="${esc(c.id)}">Editar</button><button class="btn sm danger so-edicao" data-del="${esc(c.id)}">Excluir</button></div></td></tr>`;
     k.vs.forEach(x=>{
       const v=x.v;
       h+=`<tr><td></td><td>VENDEDOR</td><td>${D(v.data)}</td><td>${esc(v.numero)}</td><td>${esc(v.nome)}</td><td>${esc(v.cidade||"")}</td>`+
         `<td class="n">${N0(v.volumeKg)}</td><td class="n">${N2(x.sc)}</td>${cN(x.P,R,1)}${cN(x.valor,R,1)}${cN(x.dif,R,1)}`+
         `<td class="n">${x.fp?R(x.fp):"-"}</td>${cN(x.res,R,1)}${cN(x.resTot,R,1)}<td></td>${cN(x.cred,R,1)}${cN(x.resCred,R,1)}`+
-        `<td class="n"><input type="text" class="frete-in frIn${x.fr==null?" pend":""}" inputmode="decimal" data-key="${esc(c.id)}|${esc(v.id)}" data-orig="${esc(toBR(x.fr,2))}" value="${esc(toBR(x.fr,2))}" placeholder="digite R$/sc" title="Digite o frete realizado (R$/sc) e tecle Enter"></td>`+
+        `<td class="n"><input type="text" class="frete-in frIn${x.fr==null?" pend":""}" inputmode="decimal" data-key="${esc(c.id)}|${esc(v.id)}" data-orig="${esc(toBR(x.fr,2))}" value="${esc(toBR(x.fr,2))}" placeholder="${podeEditar()?"digite R$/sc":"-"}"${podeEditar()?"":" disabled"} title="Digite o frete realizado (R$/sc) e tecle Enter"></td>`+
         `${x.fr!=null?`<td class="n">${R(x.fretePrevTot)}</td><td class="n">${R(x.freteRealTot)}</td>`:`<td></td><td></td>`}${lpF(x.desvio)}${mv(x.resTot,1)}${lpR(x.resRealTot,x.fr==null)}${mv(x.final,0)}<td></td></tr>`;
     });
     const lbl=n===1?"TOTAL VENDEDOR":`TOTAL ${n} VENDEDORES – PREÇO MÉDIO PONDERADO`;
@@ -206,7 +208,7 @@ async function salvar(){
 
 /* ---------------- parâmetros ---------------- */
 function renderParams(){
-  $("#paramTbl tbody").innerHTML=PRODS.map(p=>`<tr><td>${prodTag(p)}</td><td><input type="text" data-k="${p}" class="pKg" value="${toBR(kgS(p),0)}" style="width:100px"></td><td><input type="text" data-k="${p}" class="pCr" value="${toBR(crd(p)*100,2)}" style="width:100px"></td></tr>`).join("");
+  $("#paramTbl tbody").innerHTML=PRODS.map(p=>`<tr><td>${prodTag(p)}</td><td><input type="text" data-k="${p}" class="pKg"${ehAdmin()?"":" disabled"} value="${toBR(kgS(p),0)}" style="width:100px"></td><td><input type="text" data-k="${p}" class="pCr"${ehAdmin()?"":" disabled"} value="${toBR(crd(p)*100,2)}" style="width:100px"></td></tr>`).join("");
 }
 async function saveParams(){
   const np=parametrosPadrao(); let bad=false;
@@ -218,7 +220,7 @@ async function saveParams(){
 }
 
 /* ---------------- navegação / eventos ---------------- */
-function show(v){document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));[...$("#nav").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v)); if(v==="param")renderParams(); if(v==="contratos"){renderKpis();renderTable();} window.scrollTo(0,0);}
+function show(v){document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));[...$("#nav").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v)); if(v==="param")renderParams(); if(v==="usuarios")carregarUsuarios(); if(v==="novo"&&!podeEditar())v="contratos"; if(v==="contratos"){renderKpis();renderTable();} window.scrollTo(0,0);}
 function renderAll(){renderKpis();renderTable();
   $("#dlComp").innerHTML=[...new Set(contratos.map(c=>c.comprador).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("");
   $("#dlCid").innerHTML=[...new Set(contratos.flatMap(c=>[c.cidade,...(c.vendedores||[]).map(v=>v.cidade)]).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("");
@@ -253,15 +255,140 @@ async function recarregar(){
   params=ps; contratos=cs; loaded=true; renderAll(); updatePreview();
   if($("#v-param").classList.contains("on"))renderParams();
 }
+function aplicarPerfil(){
+  document.body.classList.remove("perfil-admin","perfil-comercial","perfil-consulta");
+  if(perfil)document.body.classList.add("perfil-"+perfil);
+  const t=$("#userPerfil"); t.textContent=perfil?api.NOME_PERFIL[perfil]:""; t.className="tag perfil-tag "+(perfil||"");
+  const ativo=document.querySelector("#nav button.on");
+  if(ativo&&getComputedStyle(ativo).display==="none")show("contratos");
+}
+let sessaoUserId=null;
 async function iniciarSessao(sessao){
   usuario=sessao?sessao.user:null;
-  if(!usuario){ $("#login").hidden=false; $("#userBox").hidden=true; if(pararTempoReal){pararTempoReal();pararTempoReal=null;} contratos=[]; loaded=false; renderAll(); return; }
-  $("#login").hidden=true; $("#userBox").hidden=false; $("#userEmail").textContent=usuario.email||"";
+  if(!usuario){ sessaoUserId=null; perfil=null; aplicarPerfil(); $("#login").hidden=false; $("#userBox").hidden=true; if(pararTempoReal){pararTempoReal();pararTempoReal=null;} contratos=[]; loaded=false; renderAll(); return; }
+  if(sessaoUserId===usuario.id)return;          // só renovação de sessão
+  sessaoUserId=usuario.id;
+  let p=null;
+  try{ p=await api.meuPerfil(usuario.id); }catch(e){ p=null; }
+  if(!p||!p.ativo){
+    await api.sair();
+    const msg=$("#loginMsg"); msg.className="note err";
+    msg.textContent=p?"Seu usuário está inativo. Fale com o administrador.":"Seu usuário ainda não tem perfil de acesso. Fale com o administrador.";
+    return;
+  }
+  perfil=p.perfil; aplicarPerfil();
+  $("#login").hidden=true; $("#userBox").hidden=false; $("#userEmail").textContent=p.nome||usuario.email||"";
   banner("");
   try{ await recarregar(); }
   catch(e){ loaded=true; banner(esc(e.message||"Não foi possível carregar os contratos.")); renderAll(); }
   if(!pararTempoReal) pararTempoReal=api.acompanharMudancas(()=>recarregar().catch(()=>{}));
 }
+
+/* ---------------- diálogo genérico ---------------- */
+function dialogo({titulo,html,ok="Salvar",perigo=false,validar}){
+  return new Promise(res=>{
+    $("#mTitle").textContent=titulo; $("#mText").innerHTML=html;
+    const yes=$("#mYes"), no=$("#mNo"), txt=yes.textContent;
+    yes.textContent=ok; yes.classList.toggle("danger",perigo); yes.classList.toggle("pri",!perigo);
+    $("#modal").classList.add("on");
+    const primeiro=$("#mText").querySelector("input"); if(primeiro)setTimeout(()=>primeiro.focus(),50);
+    const fim=v=>{$("#modal").classList.remove("on");yes.textContent=txt;yes.classList.add("danger");yes.classList.remove("pri");yes.onclick=null;no.onclick=null;res(v);};
+    yes.onclick=()=>{ const r=validar?validar():true; if(r===false)return; fim(r); };
+    no.onclick=()=>fim(null);
+  });
+}
+const campoSenha=(id,ph)=>`<div class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" id="${id}" placeholder="${ph}" autocomplete="new-password" style="flex:1;font:inherit;padding:8px;border:1px solid var(--line);border-radius:7px"><button type="button" class="btn sm" onclick="document.getElementById('${id}').value=window.__gerarSenha()">Gerar</button></div>`;
+function gerarSenha(){
+  const A="ABCDEFGHJKLMNPQRSTUVWXYZ", a="abcdefghijkmnopqrstuvwxyz", n="23456789", e="@#$%&*!";
+  const todos=A+a+n+e, r=new Uint32Array(12); crypto.getRandomValues(r);
+  let s=A[r[0]%A.length]+a[r[1]%a.length]+n[r[2]%n.length]+e[r[3]%e.length];
+  for(let i=4;i<12;i++)s+=todos[r[i]%todos.length];
+  return s.split("").sort(()=>Math.random()-.5).join("");
+}
+window.__gerarSenha=gerarSenha;
+function pedirNovaSenha(titulo="Definir nova senha"){
+  return dialogo({titulo,html:campoSenha("novaSenha","nova senha (mín. 8 caracteres)")+`<p class="note" style="margin:8px 0 0">Anote a senha antes de salvar.</p>`,ok:"Salvar",
+    validar:()=>{const v=$("#novaSenha").value; if(v.length<8){toast("A senha precisa ter pelo menos 8 caracteres.");return false;} return v;}});
+}
+
+/* ---------------- usuários (admin) ---------------- */
+const fmtDataHora=s=>{ if(!s)return"nunca"; const d=new Date(s); return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); };
+async function carregarUsuarios(){
+  if(!ehAdmin())return;
+  const t=$("#tblUsuarios"); t.innerHTML=`<tr><td class="empty">Carregando…</td></tr>`;
+  try{ usuarios=(await api.adminUsuarios("listar")).usuarios||[]; renderUsuarios(); }
+  catch(e){ t.innerHTML=`<tr><td class="empty prej">${esc(e.message)}</td></tr>`; }
+}
+function renderUsuarios(){
+  const t=$("#tblUsuarios");
+  if(!usuarios.length){t.innerHTML=`<tr><td class="empty">Nenhum usuário.</td></tr>`;return;}
+  t.innerHTML=`<thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody>`+
+    usuarios.map(u=>`<tr data-uid="${esc(u.user_id)}">
+      <td><b>${esc(u.nome||"—")}</b>${u.sou_eu?' <span class="tag pill-l">você</span>':""}</td>
+      <td>${esc(u.email)}</td>
+      <td><select class="uPerfilSel"${u.sou_eu?" disabled title=\"Você não pode mudar o seu próprio perfil\"":""}>
+        ${["admin","comercial","consulta"].map(p=>`<option value="${p}"${u.perfil===p?" selected":""}>${api.NOME_PERFIL[p]}</option>`).join("")}
+        ${u.perfil?"":`<option value="" selected>sem perfil</option>`}</select></td>
+      <td>${u.ativo?'<span class="st-on">Ativo</span>':'<span class="st-off">Inativo</span>'}</td>
+      <td class="note">${fmtDataHora(u.ultimo_acesso)}</td>
+      <td><div class="actions">
+        <button class="btn sm" data-ua="nome">Renomear</button>
+        <button class="btn sm" data-ua="senha">Redefinir senha</button>
+        <button class="btn sm" data-ua="link">Enviar link por e-mail</button>
+        ${u.sou_eu?"":`<button class="btn sm" data-ua="ativo">${u.ativo?"Desativar":"Reativar"}</button><button class="btn sm danger" data-ua="excluir">Excluir</button>`}
+      </div></td></tr>`).join("")+"</tbody>";
+}
+async function acaoUsuario(fn,okMsg){
+  try{ await fn(); toast(okMsg); await carregarUsuarios(); }
+  catch(e){ toast(e.message); await carregarUsuarios(); }
+}
+$("#tblUsuarios").addEventListener("change",e=>{
+  const sel=e.target.closest(".uPerfilSel"); if(!sel||!sel.value)return;
+  const u=usuarios.find(x=>x.user_id===sel.closest("tr").dataset.uid);
+  acaoUsuario(()=>api.adminUsuarios("atualizar",{user_id:u.user_id,perfil:sel.value}),`Perfil de ${u.nome||u.email} alterado para ${api.NOME_PERFIL[sel.value]}.`);
+});
+$("#tblUsuarios").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-ua]"); if(!b)return;
+  const u=usuarios.find(x=>x.user_id===b.closest("tr").dataset.uid); if(!u)return; const quem=esc(u.nome||u.email);
+  const a=b.dataset.ua;
+  if(a==="nome"){
+    const v=await dialogo({titulo:"Renomear usuário",html:`<input type="text" id="novoNome" value="${esc(u.nome)}" style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:7px">`,validar:()=>$("#novoNome").value.trim()||false});
+    if(v)acaoUsuario(()=>api.adminUsuarios("atualizar",{user_id:u.user_id,nome:v}),"Nome alterado.");
+  }
+  if(a==="senha"){
+    const v=await pedirNovaSenha(`Nova senha para ${u.nome||u.email}`);
+    if(v)acaoUsuario(()=>api.adminUsuarios("redefinir_senha",{user_id:u.user_id,senha:v}),"Senha redefinida. Passe a nova senha para a pessoa.");
+  }
+  if(a==="link"){
+    const ok=await dialogo({titulo:"Enviar link de redefinição",html:`Será enviado para <b>${esc(u.email)}</b> um e-mail com um link para a pessoa criar uma nova senha.`,ok:"Enviar"});
+    if(ok)acaoUsuario(()=>api.adminUsuarios("enviar_link",{email:u.email,redirect_to:location.origin+location.pathname}),"E-mail enviado.");
+  }
+  if(a==="ativo"){
+    const ok=await dialogo({titulo:u.ativo?"Desativar usuário?":"Reativar usuário?",html:u.ativo?`${quem} não conseguirá mais entrar no sistema. Os lançamentos feitos por ele continuam.`:`${quem} voltará a entrar com o mesmo perfil.`,ok:u.ativo?"Desativar":"Reativar",perigo:u.ativo});
+    if(ok)acaoUsuario(()=>api.adminUsuarios("atualizar",{user_id:u.user_id,ativo:!u.ativo}),u.ativo?"Usuário desativado.":"Usuário reativado.");
+  }
+  if(a==="excluir"){
+    const ok=await dialogo({titulo:"Excluir usuário?",html:`${quem} (${esc(u.email)}) será apagado de vez. Se for só para bloquear o acesso, prefira <b>Desativar</b>.`,ok:"Excluir",perigo:true});
+    if(ok)acaoUsuario(()=>api.adminUsuarios("excluir",{user_id:u.user_id}),"Usuário excluído.");
+  }
+});
+$("#uGerar").addEventListener("click",()=>{$("#uSenha").value=gerarSenha();});
+$("#uAtualizar").addEventListener("click",carregarUsuarios);
+$("#formUsuario").addEventListener("submit",async e=>{
+  e.preventDefault(); const msg=$("#uMsg"), b=$("#uCriar");
+  const dados={nome:$("#uNome").value.trim(),email:$("#uEmail").value.trim(),senha:$("#uSenha").value,perfil:$("#uPerfil").value};
+  if(dados.senha.length<8){msg.innerHTML='<span class="prej">A senha precisa ter pelo menos 8 caracteres.</span>';return;}
+  b.disabled=true; msg.textContent="Criando…";
+  try{ await api.adminUsuarios("criar",dados);
+    msg.innerHTML=`<span class="lucro">Usuário criado: ${esc(dados.email)} · senha <b>${esc(dados.senha)}</b> (anote!)</span>`;
+    $("#formUsuario").reset(); $("#uPerfil").value="comercial"; await carregarUsuarios(); }
+  catch(err){ msg.innerHTML=`<span class="prej">${esc(err.message)}</span>`; }
+  finally{ b.disabled=false; }
+});
+$("#btnMinhaSenha").addEventListener("click",async()=>{
+  const v=await pedirNovaSenha("Trocar minha senha");
+  if(v){ try{await api.definirNovaSenha(v);toast("Sua senha foi alterada.");}catch(e){toast(e.message);} }
+});
 
 $("#loginForm").addEventListener("submit",async e=>{
   e.preventDefault(); const msg=$("#loginMsg"), b=$("#btnEntrar"); msg.className="note"; msg.textContent=""; b.disabled=true;
@@ -283,24 +410,17 @@ if(!api.configurado){
   loaded=true; renderAll();
   banner("Supabase ainda não configurado: preencha <b>js/config.js</b> com a URL e a chave anon do projeto (veja o README).");
 }else{
-  api.aoMudarSessao(async (sessao)=>{
-    // link de "esqueci minha senha": pede a nova senha
-    if(location.hash.includes("type=recovery")&&sessao){
-      const nova=await pedirNovaSenha(); if(nova){ try{await api.definirNovaSenha(nova);toast("Senha alterada.");}catch(e){toast(e.message);} }
-      history.replaceState(null,"",location.pathname);
-    }
-    iniciarSessao(sessao);
+  let recuperacao=location.hash.includes("type=recovery");
+  api.aoMudarSessao((sessao,evento)=>{
+    if(evento==="PASSWORD_RECOVERY")recuperacao=true;
+    // não chamar o Supabase direto dentro deste aviso (evita travar a sessão)
+    setTimeout(async()=>{
+      if(recuperacao&&sessao){
+        recuperacao=false; history.replaceState(null,"",location.pathname);
+        const nova=await pedirNovaSenha("Crie sua nova senha"); if(nova){ try{await api.definirNovaSenha(nova);toast("Senha alterada.");}catch(e){toast(e.message);} }
+      }
+      iniciarSessao(sessao);
+    },0);
   });
 }
 
-function pedirNovaSenha(){
-  return new Promise(res=>{
-    $("#mTitle").textContent="Definir nova senha";
-    $("#mText").innerHTML=`<input type="password" id="novaSenha" placeholder="nova senha (mín. 6 caracteres)" style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:7px">`;
-    const yes=$("#mYes"), no=$("#mNo"), txt=yes.textContent; yes.textContent="Salvar"; yes.classList.remove("danger"); yes.classList.add("pri");
-    $("#modal").classList.add("on");
-    const fim=v=>{$("#modal").classList.remove("on");yes.textContent=txt;yes.classList.add("danger");yes.classList.remove("pri");no.onclick=null;res(v);};
-    yes.onclick=()=>{const v=$("#novaSenha").value; if(v.length<6){toast("Mínimo de 6 caracteres.");return;} fim(v);};
-    no.onclick=()=>fim(null);
-  });
-}
