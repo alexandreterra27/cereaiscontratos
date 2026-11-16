@@ -107,3 +107,77 @@ export function calcularContrato(c, params) {
     saldoKg: (c.volumeKg || 0) - kgT,
   };
 }
+
+// =====================================================================
+//  Compras, vendas e vínculos independentes
+// =====================================================================
+
+/** Quanto (kg) já está vinculado de cada venda e de cada compra. */
+export function vinculadoPorContrato(vinculos) {
+  const venda = new Map(), compra = new Map();
+  for (const l of vinculos) {
+    venda.set(l.vendaId, (venda.get(l.vendaId) || 0) + (l.volumeKg || 0));
+    compra.set(l.compraId, (compra.get(l.compraId) || 0) + (l.volumeKg || 0));
+  }
+  return { venda, compra };
+}
+
+/**
+ * Monta, para cada venda que tem vínculo, o objeto no formato da tabela
+ * de contratos: { ...venda, vendedores: [{ id(vínculo), compraId, nome, numero, data, cidade,
+ * volumeKg(do vínculo), preco(da compra), fretePrev, freteReal }] }
+ */
+export function montarContratosVinculados(vendas, compras, vinculos) {
+  const porCompra = new Map(compras.map((c) => [c.id, c]));
+  const porVenda = new Map();
+  for (const l of vinculos) {
+    if (!porVenda.has(l.vendaId)) porVenda.set(l.vendaId, []);
+    porVenda.get(l.vendaId).push(l);
+  }
+  return vendas
+    .filter((v) => porVenda.has(v.id))
+    .map((v) => ({
+      ...v,
+      vendedores: porVenda
+        .get(v.id)
+        .slice()
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((l) => {
+          const c = porCompra.get(l.compraId) || {};
+          return {
+            id: l.id, compraId: l.compraId, nome: c.produtor || "?", numero: c.numero || "", data: c.data || "",
+            cidade: c.cidade || "", volumeKg: l.volumeKg, preco: isN(c.preco) ? c.preco : null,
+            fretePrev: l.fretePrev, freteReal: l.freteReal,
+          };
+        }),
+    }));
+}
+
+/**
+ * Posição por produto, em sacas:
+ *   comprado            = soma dos contratos de compra
+ *   vendido             = soma dos contratos de venda
+ *   compradoSemVenda    = soma dos saldos (não vinculados) das compras
+ *   vendidoSemCompra    = soma dos saldos (não vinculados) das vendas
+ *   excesso             = kg vinculados além do volume do contrato (dado a corrigir)
+ */
+export function calcularPosicao(vendas, compras, vinculos, params) {
+  const { venda: vVenda, compra: vCompra } = vinculadoPorContrato(vinculos);
+  const linhas = {};
+  for (const p of PRODUTOS) linhas[p] = { comprado: 0, vendido: 0, compradoSemVenda: 0, vendidoSemCompra: 0, nCompras: 0, nVendas: 0, excesso: 0 };
+  for (const c of compras) {
+    const L = linhas[c.produto]; if (!L) continue;
+    const kg = kgSaca(params, c.produto), saldo = (c.volumeKg || 0) - (vCompra.get(c.id) || 0);
+    L.comprado += (c.volumeKg || 0) / kg;
+    if (saldo > 0) { L.compradoSemVenda += saldo / kg; L.nCompras++; } else if (saldo < 0) L.excesso += -saldo / kg;
+  }
+  for (const v of vendas) {
+    const L = linhas[v.produto]; if (!L) continue;
+    const kg = kgSaca(params, v.produto), saldo = (v.volumeKg || 0) - (vVenda.get(v.id) || 0);
+    L.vendido += (v.volumeKg || 0) / kg;
+    if (saldo > 0) { L.vendidoSemCompra += saldo / kg; L.nVendas++; } else if (saldo < 0) L.excesso += -saldo / kg;
+  }
+  const total = { comprado: 0, vendido: 0, compradoSemVenda: 0, vendidoSemCompra: 0, nCompras: 0, nVendas: 0, excesso: 0 };
+  for (const p of PRODUTOS) for (const k in total) total[k] += linhas[p][k];
+  return { porProduto: linhas, total };
+}

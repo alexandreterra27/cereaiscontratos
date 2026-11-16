@@ -17,60 +17,18 @@ export const supabase = configurado
 const num = (v) => (v == null || v === "" ? null : Number(v));
 
 // ---------- conversões banco ⇄ tela ----------
-function contratoDoBanco(row) {
-  return {
-    id: row.id,
-    produto: row.produto,
-    data: row.data || "",
-    numero: row.numero || "",
-    comprador: row.comprador || "",
-    cidade: row.cidade_entrega || "",
-    volumeKg: num(row.volume_kg),
-    preco: num(row.preco),
-    criadoEm: row.created_at,
-    atualizadoEm: row.updated_at,
-    vendedores: (row.contrato_vendedores || [])
-      .slice()
-      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
-      .map((v) => ({
-        id: v.id,
-        data: v.data || "",
-        numero: v.numero || "",
-        nome: v.nome || "",
-        cidade: v.cidade_retirada || "",
-        volumeKg: num(v.volume_kg),
-        preco: num(v.preco),
-        fretePrev: num(v.frete_previsto),
-        freteReal: num(v.frete_realizado),
-      })),
-  };
-}
-
-function contratoParaBanco(c) {
-  return {
-    contrato: {
-      id: c.id || null,
-      produto: c.produto,
-      data: c.data || null,
-      numero: c.numero || "",
-      comprador: c.comprador,
-      cidade_entrega: c.cidade || "",
-      volume_kg: c.volumeKg,
-      preco: c.preco,
-    },
-    vendedores: (c.vendedores || []).map((v) => ({
-      id: v.id || null,
-      data: v.data || null,
-      numero: v.numero || "",
-      nome: v.nome,
-      cidade_retirada: v.cidade || "",
-      volume_kg: v.volumeKg,
-      preco: v.preco,
-      frete_previsto: v.fretePrev,
-      frete_realizado: v.freteReal,
-    })),
-  };
-}
+const vendaDoBanco = (r) => ({
+  id: r.id, produto: r.produto, data: r.data || "", numero: r.numero || "", comprador: r.comprador || "",
+  cidade: r.cidade_entrega || "", volumeKg: num(r.volume_kg), preco: num(r.preco),
+});
+const compraDoBanco = (r) => ({
+  id: r.id, produto: r.produto, data: r.data || "", numero: r.numero || "", produtor: r.produtor || "",
+  cidade: r.cidade_retirada || "", volumeKg: num(r.volume_kg), preco: num(r.preco),
+});
+const vinculoDoBanco = (r) => ({
+  id: r.id, vendaId: r.venda_id, compraId: r.compra_id, ordem: r.ordem ?? 0, volumeKg: num(r.volume_kg),
+  fretePrev: num(r.frete_previsto), freteReal: num(r.frete_realizado),
+});
 
 function falha(error, padrao) {
   const e = new Error(traduzErro(error) || padrao);
@@ -117,16 +75,25 @@ export async function definirNovaSenha(senha) {
 }
 
 // ---------- leitura ----------
-export async function carregarContratos() {
-  const { data, error } = await supabase
-    .from("contratos")
-    .select(
-      "id, produto, data, numero, comprador, cidade_entrega, volume_kg, preco, created_at, updated_at," +
-        " contrato_vendedores (id, ordem, data, numero, nome, cidade_retirada, volume_kg, preco, frete_previsto, frete_realizado)"
-    )
-    .order("data", { ascending: false, nullsFirst: false });
-  if (error) throw falha(error, "Não foi possível carregar os contratos.");
-  return data.map(contratoDoBanco);
+/** Carrega vendas, compras e vínculos. */
+export async function carregarTudo() {
+  const [v, c, l] = await Promise.all([
+    lerTudo("contratos", "id, produto, data, numero, comprador, cidade_entrega, volume_kg, preco"),
+    lerTudo("contratos_compra", "id, produto, data, numero, produtor, cidade_retirada, volume_kg, preco"),
+    lerTudo("vinculos", "id, venda_id, compra_id, ordem, volume_kg, frete_previsto, frete_realizado"),
+  ]);
+  return { vendas: v.map(vendaDoBanco), compras: c.map(compraDoBanco), vinculos: l.map(vinculoDoBanco) };
+}
+
+/** Lê a tabela inteira em páginas de 1.000 linhas (limite do Supabase por consulta). */
+async function lerTudo(tabela, colunas) {
+  const todas = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await supabase.from(tabela).select(colunas).order("id").range(de, de + 999);
+    if (error) throw falha(error, "Não foi possível carregar os contratos.");
+    todas.push(...data);
+    if (data.length < 1000) return todas;
+  }
 }
 
 export async function carregarParametros() {
@@ -141,24 +108,53 @@ export async function carregarParametros() {
 }
 
 // ---------- gravação ----------
-/** Salva contrato + vendedores numa transação (função salvar_contrato). Devolve o id. */
-export async function salvarContrato(c) {
-  const { contrato, vendedores } = contratoParaBanco(c);
-  const { data, error } = await supabase.rpc("salvar_contrato", { p_contrato: contrato, p_vendedores: vendedores });
-  if (error) throw falha(error, "Não foi possível salvar o contrato.");
-  return data;
+async function gravar(tabela, id, linha, padrao) {
+  const q = id ? supabase.from(tabela).update(linha).eq("id", id) : supabase.from(tabela).insert(linha);
+  const { data, error } = await q.select("id");
+  if (error) throw falha(error, padrao);
+  if (!data || !data.length) throw new Error("Seu perfil de acesso não permite essa operação.");
+  return data[0].id;
 }
 
-export async function excluirContrato(id) {
-  const { error } = await supabase.from("contratos").delete().eq("id", id);
-  if (error) throw falha(error, "Não foi possível excluir.");
+export function salvarVenda(v) {
+  return gravar("contratos", v.id, {
+    produto: v.produto, data: v.data || null, numero: v.numero || "", comprador: v.comprador,
+    cidade_entrega: v.cidade || "", volume_kg: v.volumeKg, preco: v.preco,
+  }, "Não foi possível salvar a venda.");
 }
 
-export async function salvarFreteRealizado(vendedorId, valor) {
+export function salvarCompra(c) {
+  return gravar("contratos_compra", c.id, {
+    produto: c.produto, data: c.data || null, numero: c.numero || "", produtor: c.produtor,
+    cidade_retirada: c.cidade || "", volume_kg: c.volumeKg, preco: c.preco,
+  }, "Não foi possível salvar a compra.");
+}
+
+async function excluir(tabela, id, padrao) {
+  const { data, error } = await supabase.from(tabela).delete().eq("id", id).select("id");
+  if (error) throw falha(error, padrao);
+  if (!data || !data.length) throw new Error("Seu perfil de acesso não permite excluir.");
+}
+export const excluirVenda = (id) => excluir("contratos", id, "Não foi possível excluir a venda.");
+export const excluirCompra = (id) => excluir("contratos_compra", id, "Não foi possível excluir a compra.");
+
+/** Grava a lista completa de vínculos de uma venda (lista vazia = desvincular tudo). */
+export async function salvarVinculos(vendaId, lista) {
+  const { error } = await supabase.rpc("salvar_vinculos", {
+    p_venda_id: vendaId,
+    p_vinculos: lista.map((x) => ({
+      id: x.id || null, compra_id: x.compraId, volume_kg: x.volumeKg,
+      frete_previsto: x.fretePrev, frete_realizado: x.freteReal,
+    })),
+  });
+  if (error) throw falha(error, "Não foi possível salvar a vinculação.");
+}
+
+export async function salvarFreteRealizado(vinculoId, valor) {
   const { data, error } = await supabase
-    .from("contrato_vendedores")
+    .from("vinculos")
     .update({ frete_realizado: valor })
-    .eq("id", vendedorId)
+    .eq("id", vinculoId)
     .select("id");
   if (error) throw falha(error, "Não foi possível salvar o frete.");
   if (!data || !data.length) throw new Error("Seu perfil não permite lançar frete.");
@@ -186,7 +182,8 @@ export function acompanharMudancas(aoMudar) {
   const canal = supabase
     .channel("vinculacoes")
     .on("postgres_changes", { event: "*", schema: "public", table: "contratos" }, avisar)
-    .on("postgres_changes", { event: "*", schema: "public", table: "contrato_vendedores" }, avisar)
+    .on("postgres_changes", { event: "*", schema: "public", table: "contratos_compra" }, avisar)
+    .on("postgres_changes", { event: "*", schema: "public", table: "vinculos" }, avisar)
     .on("postgres_changes", { event: "*", schema: "public", table: "parametros_produto" }, avisar)
     .subscribe();
   return () => supabase.removeChannel(canal);

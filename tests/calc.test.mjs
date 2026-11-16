@@ -54,3 +54,63 @@ test("parseBR lê números no padrão brasileiro", () => {
   assert.equal(parseBR(""), null);
   assert.ok(Number.isNaN(parseBR("abc")));
 });
+
+// ---------------------------------------------------------------------
+// Compras e vendas independentes
+// ---------------------------------------------------------------------
+import { calcularPosicao, montarContratosVinculados, vinculadoPorContrato } from "../js/calc.js";
+
+function exemplo() {
+  const vendas = [
+    { id: "v1", produto: "soja", numero: "V1", comprador: "A", volumeKg: 300000, preco: 150 },
+    { id: "v2", produto: "soja", numero: "V2", comprador: "B", volumeKg: 120000, preco: 151 },   // sem compra
+    { id: "v3", produto: "milho", numero: "V3", comprador: "C", volumeKg: 60000, preco: 70 },
+  ];
+  const compras = [
+    { id: "c1", produto: "soja", numero: "C1", produtor: "P1", volumeKg: 180000, preco: 130 },
+    { id: "c2", produto: "soja", numero: "C2", produtor: "P2", volumeKg: 240000, preco: 131 },  // 120.000 vinculado
+    { id: "c3", produto: "milho", numero: "C3", produtor: "P3", volumeKg: 90000, preco: 60 },  // sem venda
+  ];
+  const vinculos = [
+    { id: "l1", vendaId: "v1", compraId: "c1", ordem: 0, volumeKg: 180000, fretePrev: 10, freteReal: null },
+    { id: "l2", vendaId: "v1", compraId: "c2", ordem: 1, volumeKg: 120000, fretePrev: 12, freteReal: 13 },
+  ];
+  return { vendas, compras, vinculos };
+}
+
+test("posição por produto: comprado, vendido, sem venda, sem compra", () => {
+  const { vendas, compras, vinculos } = exemplo();
+  const p = calcularPosicao(vendas, compras, vinculos, params);
+  assert.deepEqual(
+    [p.porProduto.soja.comprado, p.porProduto.soja.vendido, p.porProduto.soja.compradoSemVenda, p.porProduto.soja.vendidoSemCompra],
+    [7000, 7000, 2000, 2000]                        // sc: 420t/60, 420t/60, c2 120t, v2 120t
+  );
+  assert.deepEqual(
+    [p.porProduto.milho.comprado, p.porProduto.milho.vendido, p.porProduto.milho.compradoSemVenda, p.porProduto.milho.vendidoSemCompra],
+    [1500, 1000, 1500, 1000]
+  );
+  assert.equal(p.total.comprado, 8500);
+  assert.equal(p.total.compradoSemVenda, 3500);
+  assert.equal(p.total.nCompras, 2);
+  assert.equal(p.total.excesso, 0);
+});
+
+test("vínculo acima do volume aparece como excesso, não como saldo negativo", () => {
+  const { vendas, compras, vinculos } = exemplo();
+  vinculos.push({ id: "l3", vendaId: "v3", compraId: "c3", volumeKg: 66000 }); // venda v3 tem 60.000
+  const p = calcularPosicao(vendas, compras, vinculos, params);
+  assert.equal(p.porProduto.milho.vendidoSemCompra, 0);
+  assert.equal(p.porProduto.milho.excesso, 100);    // 6.000 kg = 100 sc
+});
+
+test("contratos vinculados usam preço da compra e volume do vínculo", () => {
+  const { vendas, compras, vinculos } = exemplo();
+  const cs = montarContratosVinculados(vendas, compras, vinculos);
+  assert.equal(cs.length, 1);
+  assert.deepEqual(cs[0].vendedores.map((v) => [v.nome, v.volumeKg, v.preco]), [["P1", 180000, 130], ["P2", 120000, 131]]);
+  const k = calcularContrato(cs[0], params);
+  assert.equal(k.saldoKg, 0);
+  assert.equal(Math.round(k.r.resTotT * 100) / 100, 3000 * 10 + 2000 * 7);   // (150−130−10)×3000 + (150−131−12)×2000
+  const vv = vinculadoPorContrato(vinculos);
+  assert.equal(vv.compra.get("c2"), 120000);
+});

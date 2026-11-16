@@ -1,9 +1,12 @@
 # Modelo de dados (Supabase / PostgreSQL)
 
 ```
-parametros_produto (1) ──< contratos (1) ──< contrato_vendedores (N)
-     produto                    comprador          produtores vinculados
+                       ┌──< vinculos >──┐
+parametros_produto ──< contratos (venda)   contratos_compra ── produto
+                       comprador           produtor
 ```
+Uma venda pode ter várias compras e uma compra pode atender várias vendas (`vinculos.volume_kg`).
+Saldo = volume do contrato − soma dos vínculos. Uma trava no banco impede vincular acima do saldo ou entre produtos diferentes.
 
 ## `parametros_produto`
 | coluna | tipo | descrição |
@@ -26,7 +29,16 @@ parametros_produto (1) ──< contratos (1) ──< contrato_vendedores (N)
 | created_at / updated_at | timestamptz | automáticos |
 | created_by / updated_by | uuid | usuário que criou e alterou por último |
 
-## `contrato_vendedores` (lado produtor)
+## `contratos_compra` (lado produtor)
+produto, data, numero, produtor, cidade_retirada, volume_kg, preco (vazio = A FIXAR).
+
+## `vinculos`
+venda_id, compra_id, volume_kg (quanto da compra vai para a venda), frete_previsto, frete_realizado.
+Gravados pela função `salvar_vinculos(venda_id, lista)`, que substitui a lista inteira da venda.
+
+Views: `vw_vinculacoes` (uma linha por vínculo, com lucros), `vw_compras_saldo`, `vw_vendas_saldo` e `vw_posicao_produto` (comprado, vendido, sem venda e sem compra, em sacas).
+
+## `contrato_vendedores_legado` (antiga, só cópia de segurança)
 | coluna | tipo | descrição |
 |---|---|---|
 | id | uuid (PK) | |

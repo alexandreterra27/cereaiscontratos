@@ -2,13 +2,13 @@
 //  Sistema de Vinculações de Contratos – Grupo Parceiro Agronegócios
 //  Tela principal: contratos, cadastro, frete realizado e parâmetros.
 // =====================================================================
-import { PRODUTOS as PRODS, NOME_PRODUTO as PNAME, parametrosPadrao, isN, parseBR, kgSaca, creditoPresumido, calcularContrato } from "./calc.js";
+import { PRODUTOS as PRODS, NOME_PRODUTO as PNAME, parametrosPadrao, isN, parseBR, kgSaca, creditoPresumido, calcularContrato, montarContratosVinculados, calcularPosicao, vinculadoPorContrato } from "./calc.js";
 import * as api from "./api.js";
 
-let contratos=[], params=parametrosPadrao(), editId=null, loaded=false, usuario=null, perfil=null, pararTempoReal=null, usuarios=[];
+let contratos=[], vendas=[], compras=[], vinculos=[], params=parametrosPadrao(), loaded=false, usuario=null, perfil=null, pararTempoReal=null, usuarios=[];
 const podeEditar=()=>perfil==="admin"||perfil==="comercial";
 const ehAdmin=()=>perfil==="admin";
-let fProd="";
+let fProd="", fProdLista={compras:"",vendas:""};
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -58,15 +58,15 @@ function filtered(){
 function renderTable(){
   const list=filtered(), t=$("#tbl");
   if(!loaded){t.innerHTML=`<tr><td class="empty">Carregando contratos…</td></tr>`;return;}
-  if(!list.length){t.innerHTML=`<tr><td class="empty">${contratos.length?"Nenhum contrato com esses filtros.":"Nenhum contrato ainda. Use “+ Novo contrato” para lançar o primeiro."}</td></tr>`;return;}
+  if(!list.length){t.innerHTML=`<tr><td class="empty">${contratos.length?"Nenhum contrato com esses filtros.":"Nenhum contrato vinculado ainda. Lance compras e vendas nas abas Compras e Vendas e depois use “Vincular”."}</td></tr>`;return;}
   let h=`<thead><tr>${HEAD.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
   list.forEach((c,i)=>{
     const k=calc(c), r=k.r, n=k.vs.length;
     if(i)h+=`<tr class="sp"><td colspan="${HEAD.length}"></td></tr>`;
     h+=`<tr class="buyer"><td>${prodTag(c.produto)}</td><td>COMPRADOR</td><td>${D(c.data)}</td><td>${esc(c.numero)}</td><td>${esc(c.comprador)}</td><td>${esc(c.cidade)}</td>`+
       `<td class="n">${N0(c.volumeKg)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td>`+
-      `<td class="n">${N0(k.saldoKg)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
-      `<td><div class="actions"><button class="btn sm so-edicao" data-edit="${esc(c.id)}">Editar</button><button class="btn sm danger so-edicao" data-del="${esc(c.id)}">Excluir</button></div></td></tr>`;
+      `<td class="n${k.saldoKg<0?" saldo-neg":""}"${k.saldoKg<0?` title="Vinculado ${f0.format(-k.saldoKg)} kg a mais que o volume da venda"`:""}>${N0(k.saldoKg)}${k.saldoKg<0?" ⚠":""}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
+      `<td><div class="actions"><button class="btn sm so-edicao" data-edit="${esc(c.id)}">Editar vínculos</button><button class="btn sm danger so-edicao" data-del="${esc(c.id)}">Desvincular</button></div></td></tr>`;
     k.vs.forEach(x=>{
       const v=x.v;
       h+=`<tr><td></td><td>VENDEDOR</td><td>${D(v.data)}</td><td>${esc(v.numero)}</td><td>${esc(v.nome)}</td><td>${esc(v.cidade||"")}</td>`+
@@ -91,7 +91,7 @@ async function saveFreteInline(inp){
   const val=parseBR(inp.value); if(Number.isNaN(val)){toast("Frete inválido. Use por exemplo 12,50");inp.value=inp.dataset.orig;return;}
   inp.classList.add("saving"); inp.dataset.orig=inp.value;
   try{await api.salvarFreteRealizado(vid,val);
-    const v=(c.vendedores||[]).find(v=>v.id===vid); if(v)v.freteReal=val;
+    const l=vinculos.find(x=>x.id===vid); if(l)l.freteReal=val; montar();
     toast(val==null?"Frete realizado apagado.":"Frete realizado salvo."); renderAll();}
   catch(e){toast(e.message||"Não foi possível salvar o frete.");inp.dataset.orig="";}
   finally{inp.classList.remove("saving");}
@@ -103,26 +103,19 @@ function renderKpis(){
     if(k.saldoKg>0)saldoSc+=k.saldoKg/k.kg;
     k.vs.forEach(x=>{if(x.fr!=null){nReal++;if(isN(x.resRealTot)){lReal+=x.resRealTot;lPrevMesmos+=x.resTot||0;x.resRealTot>=0?lucroN++:prejN++;}if(isN(x.final))real+=x.final;}else nPend++;});});
   const tot=prev+cred;
-  const porProd={milho:0,soja:0,sorgo:0}, nProd={milho:0,soja:0,sorgo:0};
-  contratos.forEach(c=>{if(porProd[c.produto]!=null){porProd[c.produto]+=(c.volumeKg||0)/kgS(c.produto);nProd[c.produto]++;}});
-  const totSc=porProd.milho+porProd.soja+porProd.sorgo;
-  const cardProd=`<div class="card kpi kprod" tabindex="0"><div class="l">Sacas fechadas por produto <span class="ico">i</span><div class="tip">${esc(TIPS["Sacas fechadas por produto"])}</div></div>`+
-    PRODS.map(p=>`<div class="prow">${prodTag(p)}<span class="mono"><b>${f0.format(porProd[p])}</b> sc</span><span class="note">${nProd[p]} contr.</span></div>`).join("")+
-    `<div class="prow tot"><span>Total</span><span class="mono"><b>${f0.format(totSc)}</b> sc</span><span></span></div></div>`;
-  $("#kpis").innerHTML=cardProd+
+  $("#kpis").innerHTML=
     kpi("Lucro previsto",`<span class="${prev>=0?"lucro":"prej"}">${R(prev)}</span>`,`${list.length} contratos · ${f0.format(scT)} sc · com crédito: ${R(tot)}`)+
     kpi("Lucro realizado",nReal?`<span class="${lReal>=0?"lucro":"prej"}">${R(lReal)}</span>`:"-",nReal?`${nReal} vendedores c/ frete real · previsto p/ eles: ${R(lPrevMesmos)} · com crédito: ${R(real)}`:"lance o frete real para ver")+
     kpi("Crédito presumido",R(cred),"")+
     kpiFrete(fPrev,fReal,nReal)+
-    kpi("Fretes pendentes",String(nPend),`${nReal} já lançados`)+
-    kpi("Saldo a vincular",f0.format(saldoSc)+" sc","volume comprado sem vendedor");
+    kpi("Fretes pendentes",String(nPend),`${nReal} já lançados`);
 }
 function kpiFrete(fPrev,fReal,n){
   if(!n)return kpi("Frete: previsto x realizado","-","nenhum frete realizado lançado");
   const d=fPrev-fReal, ok=d>=-0.005;
   return kpi("Frete: previsto x realizado",`<span class="${ok?"lucro":"prej"}">${fR.format(d)}</span> <span class="tag ${ok?"pill-l":"pill-p"}" style="vertical-align:middle">${ok?"LUCRO NO FRETE":"PREJUÍZO NO FRETE"}</span>`,`Previsto ${fR.format(fPrev)} − realizado ${fR.format(fReal)} (${n} lançados)`);
 }
-const TIPS={"Sacas fechadas por produto":"Volume total dos contratos de venda fechados com os compradores (volume do comprador ÷ kg por saca do produto), somado por produto. Mostra sempre os três produtos, sem depender do filtro. Inclui contratos com preço a fixar.","Lucro previsto": "Soma do lucro previsto de todos os contratos que têm preço fixado (comprador e vendedor). Para cada vendedor: (preço do comprador − preço do vendedor − frete previsto) × sacas. Não inclui o crédito presumido; o valor “com crédito” embaixo soma o crédito ao lucro previsto. Vendedores ou compradores com preço A FIXAR ficam fora da conta. Respeita o filtro de produto.", "Lucro realizado": "Soma do lucro só dos vendedores que já têm frete realizado lançado. Para cada um: (preço do comprador − preço do vendedor − frete realizado) × sacas. Embaixo: “previsto p/ eles” é o lucro previsto desses mesmos vendedores, para comparar (a diferença é o efeito do frete), e “com crédito” soma o crédito presumido deles. Não inclui o crédito no número principal.", "Crédito presumido": "Soma do crédito presumido dos vendedores com preço fixado: valor total da compra do vendedor (sacas × preço do vendedor) × % de crédito presumido do produto (definido na aba Parâmetros; hoje 2,4%). Vendedores com preço A FIXAR ficam fora.", "Frete: previsto x realizado": "Compara o frete só dos vendedores que já têm frete realizado lançado. Frete previsto total = frete previsto (R$/sc) × sacas; frete realizado total = frete realizado (R$/sc) × sacas. Resultado = previsto − realizado: positivo é LUCRO NO FRETE (gastou menos que o previsto), negativo é PREJUÍZO NO FRETE (gastou mais). Vendedor sem frete previsto conta como previsto R$ 0,00.", "Fretes pendentes": "Quantidade de vendedores que ainda não têm frete realizado lançado. Para lançar, digite o valor (R$/sc) na coluna amarela FRETE REALIZADO da tabela e tecle Enter.", "Saldo a vincular": "Volume comprado que ainda não tem vendedor vinculado: para cada contrato, volume do comprador − soma dos volumes dos vendedores, convertido em sacas. Só entram contratos com saldo positivo."};
+const TIPS={"Posição por produto":"Em sacas (kg ÷ kg por saca do produto). Comprado = soma de todos os contratos de compra. Vendido = soma de todos os contratos de venda. Comprado sem venda = parte das compras ainda não vinculada a nenhuma venda (o que está na aba Compras). Vendido sem compra = parte das vendas ainda sem compra vinculada (o que está na aba Vendas). Inclui contratos com preço a fixar. Não depende dos filtros.","Lucro previsto": "Soma do lucro previsto de todos os contratos que têm preço fixado (comprador e vendedor). Para cada vendedor: (preço do comprador − preço do vendedor − frete previsto) × sacas. Não inclui o crédito presumido; o valor “com crédito” embaixo soma o crédito ao lucro previsto. Vendedores ou compradores com preço A FIXAR ficam fora da conta. Respeita o filtro de produto.", "Lucro realizado": "Soma do lucro só dos vendedores que já têm frete realizado lançado. Para cada um: (preço do comprador − preço do vendedor − frete realizado) × sacas. Embaixo: “previsto p/ eles” é o lucro previsto desses mesmos vendedores, para comparar (a diferença é o efeito do frete), e “com crédito” soma o crédito presumido deles. Não inclui o crédito no número principal.", "Crédito presumido": "Soma do crédito presumido dos vendedores com preço fixado: valor total da compra do vendedor (sacas × preço do vendedor) × % de crédito presumido do produto (definido na aba Parâmetros; hoje 2,4%). Vendedores com preço A FIXAR ficam fora.", "Frete: previsto x realizado": "Compara o frete só dos vendedores que já têm frete realizado lançado. Frete previsto total = frete previsto (R$/sc) × sacas; frete realizado total = frete realizado (R$/sc) × sacas. Resultado = previsto − realizado: positivo é LUCRO NO FRETE (gastou menos que o previsto), negativo é PREJUÍZO NO FRETE (gastou mais). Vendedor sem frete previsto conta como previsto R$ 0,00.", "Fretes pendentes": "Quantidade de vendedores que ainda não têm frete realizado lançado. Para lançar, digite o valor (R$/sc) na coluna amarela FRETE REALIZADO da tabela e tecle Enter.", "Saldo a vincular": "Volume comprado que ainda não tem vendedor vinculado: para cada contrato, volume do comprador − soma dos volumes dos vendedores, convertido em sacas. Só entram contratos com saldo positivo."};
 const kpi=(l,v,s)=>`<div class="card kpi"${TIPS[l]?` tabindex="0"`:""}><div class="l">${l}${TIPS[l]?` <span class="ico">i</span><div class="tip">${esc(TIPS[l])}</div>`:""}</div><div class="v">${v}</div><div class="s">${s||""}</div></div>`;
 
 /* copiar como TSV */
@@ -138,73 +131,272 @@ function copyTable(){
   navigator.clipboard.writeText(tsv).then(()=>toast("Tabela copiada. Cole no Excel (Ctrl+V)."),()=>toast("Não foi possível copiar neste navegador."));
 }
 
-/* ---------------- formulário ---------------- */
-let fProduto="milho";
-function vendRow(v){
-  v=v||{};
-  const tr=document.createElement("tr"); tr.dataset.real=isN(v.freteReal)?String(v.freteReal):""; tr.dataset.vid=v.id||"";
-  tr.innerHTML=`<td><input type="date" class="vData" value="${esc(v.data||"")}"></td>`+
-    `<td><input type="text" class="vNum" value="${esc(v.numero||"")}"></td>`+
-    `<td><input type="text" class="vNome" list="dlVend" value="${esc(v.nome||"")}"></td>`+
-    `<td><input type="text" class="vCid" list="dlCid" placeholder="ex.: VARGINHA/MG" value="${esc(v.cidade||"")}"></td>`+
-    `<td><input type="text" class="vKg" inputmode="decimal" value="${esc(toBR(v.volumeKg,0))}"></td>`+
-    `<td class="mono vSc note"></td>`+
-    `<td><input type="text" class="vPreco" inputmode="decimal" placeholder="A FIXAR" value="${esc(toBR(v.preco,2))}"></td>`+
-    `<td><input type="text" class="vFrete" inputmode="decimal" placeholder="0,00" value="${esc(toBR(v.fretePrev,2))}"></td>`+
-    `<td><button type="button" class="btn sm danger vDel" title="Remover">✕</button></td>`;
-  $("#vendBody").appendChild(tr);
+/* ---------------- dados derivados ---------------- */
+let saldoVenda=new Map(), saldoCompra=new Map();
+function montar(){
+  contratos=montarContratosVinculados(vendas,compras,vinculos);
+  const vv=vinculadoPorContrato(vinculos);
+  saldoVenda=new Map(vendas.map(v=>[v.id,(v.volumeKg||0)-(vv.venda.get(v.id)||0)]));
+  saldoCompra=new Map(compras.map(c=>[c.id,(c.volumeKg||0)-(vv.compra.get(c.id)||0)]));
 }
-function readForm(strict){
-  const errs=[]; const num=(s,label,req)=>{const n=parseBR(s);if(Number.isNaN(n)){errs.push(`${label}: número inválido`);return null;} if(req&&(n==null||n<=0))errs.push(`${label}: obrigatório`);return n;};
-  const c={produto:fProduto,data:$("#cData").value||"",numero:$("#cNum").value.trim(),comprador:$("#cComp").value.trim().toUpperCase(),cidade:$("#cCid").value.trim().toUpperCase(),
-    volumeKg:num($("#cKg").value,"Volume do comprador",true),preco:num($("#cPreco").value,"Preço do comprador"),vendedores:[]};
-  if(!c.comprador)errs.push("Empresa compradora: obrigatória");
-  [...$("#vendBody").children].forEach((tr,i)=>{
-    const g=s=>tr.querySelector(s).value;
-    const v={id:tr.dataset.vid||null,data:g(".vData")||"",numero:g(".vNum").trim(),nome:g(".vNome").trim().toUpperCase(),cidade:g(".vCid").trim().toUpperCase(),
-      volumeKg:num(g(".vKg"),`Vendedor ${i+1} volume`,true),preco:num(g(".vPreco"),`Vendedor ${i+1} preço`),fretePrev:num(g(".vFrete"),`Vendedor ${i+1} frete`),
-      freteReal:tr.dataset.real!==""?Number(tr.dataset.real):null};
-    if(!v.nome&&!g(".vKg"))return; if(!v.nome)errs.push(`Vendedor ${i+1}: nome obrigatório`);
-    c.vendedores.push(v);
+const sc=(kg,produto)=>kg/kgS(produto);
+const hoje=()=>new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
+const rotuloVenda=v=>`${v.numero||"s/ nº"} · ${v.comprador} · ${PNAME[v.produto]} · saldo ${f0.format(sc(Math.max(saldoVenda.get(v.id)||0,0),v.produto))} sc`;
+const rotuloCompra=c=>`${c.numero||"s/ nº"} · ${c.produtor} · ${PNAME[c.produto]} · saldo ${f0.format(sc(Math.max(vnDisponivelCompra(c.id),0),c.produto))} sc`;
+const opt=x=>`<option value="${esc(x)}">`;
+
+/* ---------------- posição por produto ---------------- */
+function renderPosicao(){
+  const p=calcularPosicao(vendas,compras,vinculos,params), T=p.total;
+  const n=v=>f0.format(Math.round(v));
+  const linha=(nome,L,cls="")=>`<tr class="${cls}"><td>${nome}</td><td>${n(L.comprado)}</td><td>${n(L.vendido)}</td>`+
+    `<td class="${L.compradoSemVenda>0.5?"alerta":""}">${n(L.compradoSemVenda)}${L.nCompras?`<span class="sub">${L.nCompras} contrato(s)</span>`:""}</td>`+
+    `<td class="${L.vendidoSemCompra>0.5?"alerta":""}">${n(L.vendidoSemCompra)}${L.nVendas?`<span class="sub">${L.nVendas} contrato(s)</span>`:""}</td></tr>`;
+  const exc=T.excesso>0.5?`<p class="note prej" style="margin:8px 0 0">⚠ Há ${n(T.excesso)} sc vinculados além do volume de algum contrato. Procure o ⚠ na aba Contratos e ajuste o volume do vínculo.</p>`:"";
+  $("#posicao").innerHTML=`<h3 class="kpi" tabindex="0" style="cursor:help;position:relative;border:0;padding:0;background:none">Posição por produto (sacas) <span class="ico">i</span><div class="tip">${esc(TIPS["Posição por produto"])}</div></h3>
+    <table><thead><tr><th>Produto</th><th>Total comprado</th><th>Total vendido</th><th>Comprado sem venda</th><th>Vendido sem compra</th></tr></thead><tbody>
+    ${PRODS.map(pr=>linha(prodTag(pr),p.porProduto[pr])).join("")}${linha("<b>Total</b>",T,"tot")}</tbody></table>${exc}`;
+  $("#cntCompras").textContent=compras.filter(c=>(saldoCompra.get(c.id)||0)>0).length||"";
+  $("#cntVendas").textContent=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0).length||"";
+}
+
+function renderDatalists(){
+  const uniq=a=>[...new Set(a.filter(Boolean))].sort();
+  $("#dlComp").innerHTML=uniq(vendas.map(v=>v.comprador)).map(opt).join("");
+  $("#dlProdutor").innerHTML=uniq(compras.map(c=>c.produtor)).map(opt).join("");
+  $("#dlCid").innerHTML=uniq([...vendas.map(v=>v.cidade),...compras.map(c=>c.cidade)]).map(opt).join("");
+  $("#dlVendasAbertas").innerHTML=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0).sort(porData).map(v=>opt(rotuloVenda(v))).join("");
+  const venda=vn.venda&&vendas.find(v=>v.id===vn.venda);
+  $("#dlComprasAbertas").innerHTML=venda?compras.filter(c=>c.produto===venda.produto&&vnDisponivelCompra(c.id)>0&&!vn.linhas.some(l=>l.compraId===c.id)).sort(porData).map(c=>opt(rotuloCompra(c))).join(""):"";
+}
+const porData=(a,b)=>((b.data||"")+(b.numero||"")).localeCompare((a.data||"")+(a.numero||""));
+
+/* ---------------- listas Compras / Vendas ---------------- */
+function linhasLista(tipo){
+  const lista=tipo==="compras"?compras:vendas, saldos=tipo==="compras"?saldoCompra:saldoVenda;
+  const q=($(tipo==="compras"?"#fBuscaCompras":"#fBuscaVendas").value||"").trim().toLowerCase();
+  const todas=$(tipo==="compras"?"#todasCompras":"#todasVendas").checked, fp=fProdLista[tipo];
+  return lista.filter(x=>{
+    if(fp&&x.produto!==fp)return false;
+    if(!todas&&(saldos.get(x.id)||0)<=0)return false;
+    if(q&&![x.numero,x.produtor,x.comprador,x.cidade].join(" ").toLowerCase().includes(q))return false;
+    return true;
+  }).sort(porData);
+}
+function vinculosDe(tipo,id){
+  return vinculos.filter(l=>tipo==="compras"?l.compraId===id:l.vendaId===id).map(l=>{
+    const o=tipo==="compras"?vendas.find(v=>v.id===l.vendaId):compras.find(c=>c.id===l.compraId);
+    return o?`${esc(o.numero||"s/ nº")} <span class="note">(${f0.format(sc(l.volumeKg,o.produto))} sc)</span>`:"";
+  }).join("<br>");
+}
+function renderLista(tipo){
+  const t=$(tipo==="compras"?"#tblCompras":"#tblVendas"), saldos=tipo==="compras"?saldoCompra:saldoVenda;
+  if(!loaded){t.innerHTML=`<tr><td class="empty">Carregando…</td></tr>`;return;}
+  const rows=linhasLista(tipo);
+  const todas=$(tipo==="compras"?"#todasCompras":"#todasVendas").checked;
+  if(!rows.length){t.innerHTML=`<tr><td class="empty">${todas?"Nenhum contrato.":tipo==="compras"?"Nenhuma compra sem venda. Tudo vinculado! 👍":"Nenhuma venda sem compra. Tudo vinculado! 👍"}</td></tr>`;return;}
+  const quem=tipo==="compras"?"PRODUTOR":"COMPRADOR", cid=tipo==="compras"?"CIDADE DE RETIRADA":"CIDADE DE ENTREGA", outro=tipo==="compras"?"VENDAS VINCULADAS":"COMPRAS VINCULADAS";
+  let h=`<thead><tr>${[podeEditar()?"":null,"PRODUTO","DATA","Nº CONTRATO",quem,cid,"VOLUME (kg)","VOLUME (sc)","PREÇO (R$/sc)","VALOR TOTAL (R$)","VINCULADO (sc)","SALDO (sc)",outro].filter(x=>x!==null).map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  let totKg=0,totSaldo=0;
+  rows.forEach(x=>{
+    const s=saldos.get(x.id)||0, vinc=(x.volumeKg||0)-s; totKg+=x.volumeKg||0; totSaldo+=Math.max(s,0)/kgS(x.produto);
+    const acoes=podeEditar()?`<td><div class="actions">${s>0?`<button class="btn sm pri" data-lvincular="${esc(x.id)}">Vincular</button>`:""}<button class="btn sm" data-leditar="${esc(x.id)}">Editar</button><button class="btn sm danger" data-lexcluir="${esc(x.id)}">Excluir</button></div></td>`:"";
+    h+=`<tr>${acoes}<td>${prodTag(x.produto)}</td><td>${D(x.data)}</td><td><b>${esc(x.numero||"s/ nº")}</b></td><td>${esc(tipo==="compras"?x.produtor:x.comprador)}</td><td>${esc(x.cidade)}</td>`+
+      `<td class="n">${N0(x.volumeKg)}</td><td class="n">${N2(sc(x.volumeKg,x.produto))}</td>${cN(x.preco,R,1)}${cN(isN(x.preco)?sc(x.volumeKg,x.produto)*x.preco:null,R,1)}`+
+      `<td class="n">${vinc?N2(sc(vinc,x.produto)):"-"}</td><td class="n ${s>0.0005?"saldo-pos":s<-0.0005?"saldo-neg":"saldo-zero"}">${s<-0.0005?"⚠ ":""}${N2(sc(s,x.produto))}</td>`+
+      `<td>${vinculosDe(tipo,x.id)||'<span class="note">—</span>'}</td></tr>`;
   });
-  if(strict&&!c.vendedores.length)errs.push("Lance pelo menos um vendedor");
-  return {c,errs};
+  h+=`<tr class="resumo">${podeEditar()?"<td></td>":""}<td></td><td></td><td>${rows.length} contrato(s)</td><td></td><td></td><td class="n">${N0(totKg)}</td><td></td><td></td><td></td><td></td><td class="n">${N2(totSaldo)}</td><td></td></tr>`;
+  t.innerHTML=h+"</tbody>";
 }
-function updatePreview(){
-  const {c}=readForm(false), k=calc({...c,volumeKg:c.volumeKg||0});
-  [...$("#vendBody").children].forEach((tr,i)=>{const kg=parseBR(tr.querySelector(".vKg").value);tr.querySelector(".vSc").textContent=isN(kg)?N2(kg/k.kg):"";});
-  $("#cInfo").textContent=isN(c.volumeKg)?`${N2(c.volumeKg/k.kg)} sacas de ${k.kg} kg · crédito presumido ${toBR(k.cr*100,2)}%`+(isN(c.preco)?` · valor total ${R(c.volumeKg/k.kg*c.preco)}`:" · preço A FIXAR"):"";
-  const s=$("#saldoInfo"); if(isN(c.volumeKg)){s.textContent=`${N0(k.saldoKg)||"0"} kg (${N2(k.saldoKg/k.kg)} sc)`; s.style.color=k.saldoKg<0?"var(--prej)":k.saldoKg>0?"var(--warn)":"var(--lucro)"; if(k.saldoKg<0)s.textContent+=" · vendedores passam do volume do comprador";} else s.textContent="-";
-  const r=k.r;
-  let h=`<thead><tr>${["TIPO","EMPRESA / PRODUTOR","VOLUME (sc)","PREÇO (R$/sc)","VALOR TOTAL (R$)","DIFERENÇA (R$/sc)","FRETE (R$/sc)","RESULTADO (R$/sc)","RESULTADO TOTAL (R$)","CRÉDITO PRESUMIDO (R$)","RESULTADO + CRÉDITO (R$/sc)"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
-  h+=`<tr class="buyer"><td>COMPRADOR</td><td>${esc(c.comprador)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-  k.vs.forEach(x=>h+=`<tr><td>VENDEDOR</td><td>${esc(x.v.nome)}${x.v.cidade?` <span class="note">· ${esc(x.v.cidade)}</span>`:""}</td><td class="n">${N2(x.sc)}</td>${cN(x.P,R,1)}${cN(x.valor,R,1)}${cN(x.dif,R,1)}<td class="n">${x.fp?R(x.fp):"-"}</td>${cN(x.res,R,1)}${cN(x.resTot,R,1)}${cN(x.cred,R,1)}${cN(x.resCred,R,1)}</tr>`);
-  h+=`<tr class="resumo"><td>RESUMO</td><td>${k.vs.length} vendedor(es)</td><td class="n">${N2(r.scT)}</td>${cN(r.precoM,R,1)}${cN(r.valorT,R,1)}${cN(r.difM,R,1)}<td class="n">${r.freteM?R(r.freteM):"-"}</td>${cN(r.resM,R,1)}${cN(r.resTotT,R,1)}${cN(r.credT,R,1)}${cN(r.resCredM,R,1)}</tr></tbody>`;
+const renderCompras=()=>renderLista("compras"), renderVendas=()=>renderLista("vendas");
+
+/* ---------------- formulários Compras / Vendas ---------------- */
+const F={compras:{pre:"cp",nome:"produtor",tit:"#ftCompra",novo:"Novo contrato de compra",edit:"Editar contrato de compra",salvar:api.salvarCompra,excluir:api.excluirCompra},
+         vendas:{pre:"vd",nome:"comprador",tit:"#ftVenda",novo:"Novo contrato de venda",edit:"Editar contrato de venda",salvar:api.salvarVenda,excluir:api.excluirVenda}};
+const editando={compras:null,vendas:null};
+function limparForm(tipo){
+  const f=F[tipo], P=f.pre; editando[tipo]=null;
+  $("#"+P+"Data").value=hoje(); $("#"+P+"Num").value=""; $("#"+P+"Nome").value=""; $("#"+P+"Kg").value=""; $("#"+P+"Preco").value="";
+  $("#"+P+"Cid").value=tipo==="vendas"?"SANTOS/SP":""; $("#"+P+"Produto").disabled=false;
+  $(f.tit).textContent=f.novo; $("#"+P+"Cancelar").hidden=true; $("#"+P+"Msg").textContent="";
+}
+function editarForm(tipo,id){
+  const f=F[tipo], P=f.pre, x=(tipo==="compras"?compras:vendas).find(y=>y.id===id); if(!x)return;
+  editando[tipo]=id; $("#"+P+"Produto").value=x.produto; $("#"+P+"Data").value=x.data||""; $("#"+P+"Num").value=x.numero||"";
+  $("#"+P+"Nome").value=x[f.nome]||""; $("#"+P+"Cid").value=x.cidade||""; $("#"+P+"Kg").value=toBR(x.volumeKg,0); $("#"+P+"Preco").value=toBR(x.preco,2);
+  const temVinc=vinculos.some(l=>(tipo==="compras"?l.compraId:l.vendaId)===id); $("#"+P+"Produto").disabled=temVinc;
+  $(f.tit).textContent=`${f.edit} ${x.numero||""}`; $("#"+P+"Cancelar").hidden=false;
+  $("#"+P+"Msg").textContent=temVinc?"Este contrato já tem vínculos: o produto não pode mudar e o volume não pode ficar menor que o vinculado.":"";
+  $(f.tit).scrollIntoView({behavior:"smooth",block:"center"}); $("#"+P+"Num").focus();
+}
+async function salvarForm(tipo){
+  const f=F[tipo], P=f.pre, msg=$("#"+P+"Msg");
+  const kg=parseBR($("#"+P+"Kg").value), preco=parseBR($("#"+P+"Preco").value), nome=$("#"+P+"Nome").value.trim().toUpperCase();
+  const erros=[]; if(!nome)erros.push(tipo==="compras"?"informe o produtor":"informe a empresa compradora");
+  if(!isN(kg)||kg<=0)erros.push("volume inválido"); if(Number.isNaN(preco))erros.push("preço inválido");
+  if(erros.length){msg.innerHTML=`<span class="prej">${esc(erros.join(" · "))}</span>`;return;}
+  const x={id:editando[tipo],produto:$("#"+P+"Produto").value,data:$("#"+P+"Data").value,numero:$("#"+P+"Num").value.trim().toUpperCase(),
+    cidade:$("#"+P+"Cid").value.trim().toUpperCase(),volumeKg:kg,preco};
+  x[f.nome]=nome;
+  const b=$("#"+P+"Salvar"); b.disabled=true; msg.textContent="Salvando…";
+  try{ const eraEdicao=!!x.id; await f.salvar(x); await recarregar(); limparForm(tipo);
+    toast(eraEdicao?"Contrato atualizado.":(tipo==="compras"?"Compra lançada. Ela fica nesta aba até ser vinculada.":"Venda lançada. Ela fica nesta aba até ser vinculada.")); }
+  catch(e){ msg.innerHTML=`<span class="prej">${esc(e.message)}</span>`; }
+  finally{ b.disabled=false; }
+}
+async function excluirDaLista(tipo,id){
+  const x=(tipo==="compras"?compras:vendas).find(y=>y.id===id); if(!x)return;
+  const nv=vinculos.filter(l=>(tipo==="compras"?l.compraId:l.vendaId)===id).length;
+  const ok=await dialogo({titulo:tipo==="compras"?"Excluir contrato de compra?":"Excluir contrato de venda?",
+    html:`<b>${esc(x.numero||"s/ nº")}</b> · ${esc(tipo==="compras"?x.produtor:x.comprador)} será apagado de vez.${nv?`<br><br><b>Atenção:</b> ele tem ${nv} vínculo(s), que também serão apagados (com os fretes lançados).`:""}`,ok:"Excluir",perigo:true});
+  if(!ok)return;
+  try{ await F[tipo].excluir(id); if(editando[tipo]===id)limparForm(tipo); await recarregar(); toast("Contrato excluído."); }catch(e){ toast(e.message); }
+}
+
+/* ---------------- Vincular ---------------- */
+const vn={venda:null,linhas:[],compraPendente:null};
+function vnDisponivelCompra(compraId){
+  // saldo da compra somando de volta o que esta venda já usa dela (será regravado)
+  const proprio=vn.venda?vinculos.filter(l=>l.vendaId===vn.venda&&l.compraId===compraId).reduce((s,l)=>s+l.volumeKg,0):0;
+  return (saldoCompra.get(compraId)||0)+proprio;
+}
+function vnLimpar(){
+  vn.venda=null; vn.linhas=[]; vn.compraPendente=null;
+  $("#vnVendaBusca").value=""; $("#vnVendaBusca").disabled=false; $("#vnPuxarVenda").hidden=false; $("#vnTrocarVenda").hidden=true;
+  $("#vnEscolhaVenda").innerHTML=""; $("#vnEscolhaCompra").innerHTML=""; $("#vnMsg").textContent=""; $("#vnTitulo").textContent="1. Contrato de venda";
+  vnAtualizar();
+}
+function vnCarregarVenda(id){
+  const v=vendas.find(x=>x.id===id); if(!v)return;
+  vn.venda=id; vn.linhas=vinculos.filter(l=>l.vendaId===id).sort((a,b)=>a.ordem-b.ordem).map(l=>({id:l.id,compraId:l.compraId,volumeKg:l.volumeKg,fretePrev:l.fretePrev,freteReal:l.freteReal}));
+  $("#vnVendaBusca").value=rotuloVenda(v); $("#vnVendaBusca").disabled=true; $("#vnPuxarVenda").hidden=true; $("#vnTrocarVenda").hidden=false; $("#vnEscolhaVenda").innerHTML="";
+  $("#vnTitulo").textContent=vn.linhas.length?"1. Contrato de venda (editando vínculos)":"1. Contrato de venda";
+  if(vn.compraPendente){ const c=compras.find(x=>x.id===vn.compraPendente); vn.compraPendente=null; if(c)vnAdicionarCompra(c.id,true); }
+  vnAtualizar(); setTimeout(()=>$("#vnCompraBusca").focus(),50);
+}
+function buscar(lista,texto,rotulo,campoNome){
+  const q=texto.trim().toLowerCase(); if(!q)return [];
+  const exato=lista.filter(x=>rotulo(x).toLowerCase()===q); if(exato.length)return exato;
+  const num=lista.filter(x=>(x.numero||"").toLowerCase()===q); if(num.length)return num;
+  return lista.filter(x=>(x.numero||"").toLowerCase().includes(q)||(x[campoNome]||"").toLowerCase().includes(q));
+}
+function escolha(el,itens,rotulo,acao){
+  el.innerHTML=`<div class="escolha"><span class="note">Encontrei ${itens.length} contratos. Escolha um:</span>${itens.slice(0,12).map(x=>`<button type="button" class="btn sm" data-id="${esc(x.id)}">${esc(rotulo(x))}</button>`).join("")}</div>`;
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{el.innerHTML="";acao(b.dataset.id);});
+}
+function vnPuxarVenda(){
+  const txt=$("#vnVendaBusca").value, el=$("#vnEscolhaVenda");
+  const abertas=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0);
+  let achou=buscar(abertas,txt,rotuloVenda,"comprador"); if(!achou.length)achou=buscar(vendas,txt,rotuloVenda,"comprador");
+  if(!achou.length){el.innerHTML=`<p class="note prej">Nenhum contrato de venda com "${esc(txt)}". Lance a venda na aba Vendas.</p>`;return;}
+  if(achou.length===1)return vnCarregarVenda(achou[0].id);
+  escolha(el,achou,rotuloVenda,vnCarregarVenda);
+}
+function vnAdicionarCompra(id,silencioso){
+  const c=compras.find(x=>x.id===id), v=vendas.find(x=>x.id===vn.venda); if(!c||!v)return;
+  if(c.produto!==v.produto){toast(`A compra ${c.numero||""} é de ${PNAME[c.produto]} e a venda é de ${PNAME[v.produto]}.`);return;}
+  if(vn.linhas.some(l=>l.compraId===id)){if(!silencioso)toast("Essa compra já está na lista.");return;}
+  const disp=vnDisponivelCompra(id), restante=(v.volumeKg||0)-vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0);
+  if(disp<=0){toast("Essa compra não tem saldo para vincular.");return;}
+  vn.linhas.push({id:null,compraId:id,volumeKg:Math.max(Math.min(disp,restante>0?restante:disp),0)||disp,fretePrev:null,freteReal:null});
+  $("#vnCompraBusca").value=""; $("#vnEscolhaCompra").innerHTML=""; vnAtualizar();
+  const inp=[...document.querySelectorAll("#vnCompras .vnKg")].pop(); if(inp&&!silencioso){inp.focus();inp.select();}
+}
+function vnPuxarCompra(){
+  const v=vendas.find(x=>x.id===vn.venda); if(!v)return;
+  const txt=$("#vnCompraBusca").value, el=$("#vnEscolhaCompra");
+  const mesmas=compras.filter(c=>c.produto===v.produto&&!vn.linhas.some(l=>l.compraId===c.id));
+  let achou=buscar(mesmas.filter(c=>vnDisponivelCompra(c.id)>0),txt,rotuloCompra,"produtor");
+  if(!achou.length){const outras=buscar(compras,txt,rotuloCompra,"produtor");
+    el.innerHTML=`<p class="note prej">${outras.length?`Achei ${outras.length} compra(s) com "${esc(txt)}", mas sem saldo ou de outro produto (a venda é de ${PNAME[v.produto]}).`:`Nenhum contrato de compra com "${esc(txt)}". Lance a compra na aba Compras.`}</p>`;return;}
+  if(achou.length===1)return vnAdicionarCompra(achou[0].id);
+  escolha(el,achou,rotuloCompra,vnAdicionarCompra);
+}
+function vnAtualizar(){
+  const v=vn.venda&&vendas.find(x=>x.id===vn.venda);
+  $("#vnVenda").hidden=!v; $("#vnCardCompras").hidden=!v; $("#vnCardPrevia").hidden=!v; $("#vnAcoes").hidden=!v;
+  renderDatalists();
+  if(!v)return;
+  const sv=saldoVenda.get(v.id)||0;
+  $("#vnVenda").innerHTML=[["Produto",prodTag(v.produto)],["Nº contrato",esc(v.numero||"s/ nº")],["Data",D(v.data)||"-"],["Comprador",esc(v.comprador)],["Cidade de entrega",esc(v.cidade||"-")],
+    ["Volume",`${N0(v.volumeKg)} kg · ${N2(sc(v.volumeKg,v.produto))} sc`],["Preço",isN(v.preco)?R(v.preco):'<span class="fx">A FIXAR</span>'],["Saldo hoje",`${N2(sc(sv,v.produto))} sc`]]
+    .map(([k,x])=>`<div><div class="k">${k}</div><div class="v">${x}</div></div>`).join("");
+  const tb=$("#vnCompras");
+  tb.innerHTML=vn.linhas.length?vn.linhas.map((l,i)=>{const c=compras.find(x=>x.id===l.compraId)||{};const disp=vnDisponivelCompra(l.compraId);const passa=(l.volumeKg||0)>disp+0.0005;
+    return `<tr data-i="${i}"><td><b>${esc(c.numero||"s/ nº")}</b></td><td>${esc(c.produtor)}</td><td>${esc(c.cidade||"-")}</td><td class="mono">${isN(c.preco)?R(c.preco):'<span class="fx">A FIXAR</span>'}</td>`+
+      `<td class="mono ${passa?"prej":""}">${N0(disp)} kg${passa?" ⚠":""}</td>`+
+      `<td><input type="text" class="vnKg" inputmode="decimal" value="${esc(toBR(l.volumeKg,0))}"></td><td class="mono note">${N2(sc(l.volumeKg||0,v.produto))}</td>`+
+      `<td><input type="text" class="vnFrete" inputmode="decimal" placeholder="0,00" value="${esc(toBR(l.fretePrev,2))}"></td>`+
+      `<td><button type="button" class="btn sm danger vnDel" title="Tirar desta vinculação">✕</button></td></tr>`;}).join("")
+    :`<tr><td colspan="9" class="note" style="padding:12px">Nenhuma compra ainda. Digite o nº do contrato de compra acima e clique em Puxar.</td></tr>`;
+  vnSaldoEPrevia();
+}
+function vnSaldoEPrevia(){
+  const v=vendas.find(x=>x.id===vn.venda); if(!v)return;
+  const usado=vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0), resto=(v.volumeKg||0)-usado, el=$("#vnSaldo");
+  el.textContent=`${f0.format(resto)} kg (${N2(sc(resto,v.produto))} sc)`+(resto<0?" · passa do volume da venda":resto>0?" · continua na aba Vendas com esse saldo":" · venda totalmente vinculada");
+  el.style.color=resto<0?"var(--prej)":resto>0?"var(--warn)":"var(--lucro)";
+  const c={...v,vendedores:vn.linhas.map(l=>{const cp=compras.find(x=>x.id===l.compraId)||{};return {id:l.id,nome:cp.produtor,cidade:cp.cidade,volumeKg:l.volumeKg||0,preco:isN(cp.preco)?cp.preco:null,fretePrev:l.fretePrev,freteReal:l.freteReal};})};
+  const k=calc(c), r=k.r;
+  let h=`<thead><tr>${["TIPO","EMPRESA / PRODUTOR","VOLUME (sc)","PREÇO (R$/sc)","VALOR TOTAL (R$)","DIFERENÇA (R$/sc)","FRETE (R$/sc)","RESULTADO (R$/sc)","LUCRO PREVISTO (R$)","CRÉDITO PRESUMIDO (R$)","RESULTADO + CRÉDITO (R$/sc)"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  h+=`<tr class="buyer"><td>COMPRADOR</td><td>${esc(v.comprador)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  k.vs.forEach(x=>h+=`<tr><td>VENDEDOR</td><td>${esc(x.v.nome)}${x.v.cidade?` <span class="note">· ${esc(x.v.cidade)}</span>`:""}</td><td class="n">${N2(x.sc)}</td>${cN(x.P,R,1)}${cN(x.valor,R,1)}${cN(x.dif,R,1)}<td class="n">${x.fp?R(x.fp):"-"}</td>${cN(x.res,R,1)}${mv(x.resTot,1)}${cN(x.cred,R,1)}${cN(x.resCred,R,1)}</tr>`);
+  h+=`<tr class="resumo"><td>RESUMO</td><td>${k.vs.length} compra(s)</td><td class="n">${N2(r.scT)}</td>${cN(r.precoM,R,1)}${cN(r.valorT,R,1)}${cN(r.difM,R,1)}<td class="n">${r.freteM?R(r.freteM):"-"}</td>${cN(r.resM,R,1)}${mv(r.resTotT,1)}${cN(r.credT,R,1)}${cN(r.resCredM,R,1)}</tr></tbody>`;
   $("#preview").innerHTML=h;
 }
-function setProduto(p){fProduto=p;[...$("#prodPick").children].forEach(b=>b.classList.toggle("on",b.dataset.p===p));updatePreview();}
-function resetForm(c){
-  editId=c?c.id:null; $("#formTitle").textContent=c?`Editar contrato ${c.numero||""}`:"Novo contrato";
-  $("#cData").value=c?c.data||"":new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
-  $("#cNum").value=c?c.numero||"":""; $("#cComp").value=c?c.comprador||"":""; $("#cCid").value=c?c.cidade||"":"SANTOS/SP";
-  $("#cKg").value=c?toBR(c.volumeKg,0):""; $("#cPreco").value=c?toBR(c.preco,2):"";
-  $("#vendBody").innerHTML=""; (c&&c.vendedores&&c.vendedores.length?c.vendedores:[null]).forEach(vendRow);
-  $("#formMsg").textContent=""; setProduto(c?c.produto||"milho":"milho");
+async function vnSalvar(){
+  const v=vendas.find(x=>x.id===vn.venda), msg=$("#vnMsg"); if(!v)return;
+  const erros=[];
+  vn.linhas.forEach((l,i)=>{const c=compras.find(x=>x.id===l.compraId)||{};
+    if(!isN(l.volumeKg)||l.volumeKg<=0)erros.push(`compra ${c.numero||i+1}: volume inválido`);
+    else if(l.volumeKg>vnDisponivelCompra(l.compraId)+0.0005)erros.push(`compra ${c.numero||i+1}: passa do saldo (${f0.format(vnDisponivelCompra(l.compraId))} kg)`);
+    if(Number.isNaN(l.fretePrev))erros.push(`compra ${c.numero||i+1}: frete inválido`);});
+  const usado=vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0);
+  if(usado>(v.volumeKg||0)+0.0005)erros.push(`a soma (${f0.format(usado)} kg) passa do volume da venda (${f0.format(v.volumeKg)} kg)`);
+  if(erros.length){msg.innerHTML=`<span class="prej">${esc(erros.join(" · "))}</span>`;return;}
+  const tinha=vinculos.some(l=>l.vendaId===v.id);
+  if(!vn.linhas.length){ if(!tinha){msg.innerHTML='<span class="prej">Puxe pelo menos um contrato de compra.</span>';return;}
+    const ok=await dialogo({titulo:"Desvincular tudo?",html:"Você tirou todas as compras. A venda e as compras voltam para as abas Vendas e Compras.",ok:"Desvincular",perigo:true}); if(!ok)return; }
+  const b=$("#vnSalvar"); b.disabled=true; msg.textContent="Salvando…";
+  const n=vn.linhas.length;
+  try{ await api.salvarVinculos(v.id,vn.linhas); await recarregar(); vnLimpar(); show(n?"contratos":"vendas"); toast(n?"Vinculação salva.":"Contratos desvinculados."); }
+  catch(e){ msg.innerHTML=`<span class="prej">${esc(e.message)}</span>`; }
+  finally{ b.disabled=false; }
 }
-async function salvar(){
-  const {c,errs}=readForm(true);
-  if(errs.length){$("#formMsg").innerHTML=`<span class="prej">${esc(errs.join(" · "))}</span>`;return;}
-  if(!api.supabase){$("#formMsg").innerHTML=`<span class="prej">Supabase não configurado (js/config.js).</span>`;return;}
-  const btn=$("#btnSalvar"); btn.disabled=true;
-  try{
-    c.id=editId||null;
-    await api.salvarContrato(c);
-    const eraEdicao=!!editId;
-    await recarregar();
-    toast(eraEdicao?"Contrato atualizado.":"Contrato salvo."); resetForm(null); show("contratos");
-  }catch(e){ $("#formMsg").innerHTML=`<span class="prej">${esc(e.message||"Não foi possível salvar.")}</span>`; }
-  finally{btn.disabled=false;}
-}
+
+/* eventos das novas abas */
+document.querySelectorAll(".fprod").forEach(seg=>seg.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const alvo=seg.dataset.alvo;fProdLista[alvo]=b.dataset.p;[...seg.children].forEach(x=>x.classList.toggle("on",x===b));renderLista(alvo);}));
+["#fBuscaCompras","#todasCompras"].forEach(s=>$(s).addEventListener("input",renderCompras));
+["#fBuscaVendas","#todasVendas"].forEach(s=>$(s).addEventListener("input",renderVendas));
+$("#formCompra").addEventListener("submit",e=>{e.preventDefault();salvarForm("compras");});
+$("#formVenda").addEventListener("submit",e=>{e.preventDefault();salvarForm("vendas");});
+$("#cpCancelar").addEventListener("click",()=>limparForm("compras")); $("#vdCancelar").addEventListener("click",()=>limparForm("vendas"));
+[["#tblCompras","compras"],["#tblVendas","vendas"]].forEach(([sel,tipo])=>$(sel).addEventListener("click",e=>{
+  const ed=e.target.closest("[data-leditar]"), ex=e.target.closest("[data-lexcluir]"), vi=e.target.closest("[data-lvincular]");
+  if(ed)editarForm(tipo,ed.dataset.leditar);
+  if(ex)excluirDaLista(tipo,ex.dataset.lexcluir);
+  if(vi){ if(tipo==="vendas"){vnLimpar();vnCarregarVenda(vi.dataset.lvincular);}
+    else{ vnLimpar(); vn.compraPendente=vi.dataset.lvincular; const c=compras.find(x=>x.id===vn.compraPendente);
+      $("#vnEscolhaVenda").innerHTML=`<p class="note">Agora puxe a venda para vincular a compra <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.produtor)}, ${PNAME[c.produto]}).</p>`; }
+    show("vincular"); if(!vn.venda)setTimeout(()=>$("#vnVendaBusca").focus(),50); }
+}));
+$("#vnPuxarVenda").addEventListener("click",vnPuxarVenda);
+$("#vnVendaBusca").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();vnPuxarVenda();}});
+$("#vnVendaBusca").addEventListener("change",()=>{const v=vendas.find(x=>rotuloVenda(x)===$("#vnVendaBusca").value);if(v)vnCarregarVenda(v.id);});
+$("#vnTrocarVenda").addEventListener("click",vnLimpar);
+$("#vnPuxarCompra").addEventListener("click",vnPuxarCompra);
+$("#vnCompraBusca").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();vnPuxarCompra();}});
+$("#vnCompraBusca").addEventListener("change",()=>{const c=compras.find(x=>rotuloCompra(x)===$("#vnCompraBusca").value);if(c)vnAdicionarCompra(c.id);});
+$("#vnCompras").addEventListener("input",e=>{const tr=e.target.closest("tr[data-i]");if(!tr)return;const l=vn.linhas[+tr.dataset.i];
+  if(e.target.classList.contains("vnKg")){l.volumeKg=parseBR(e.target.value);tr.children[6].textContent=isN(l.volumeKg)?N2(sc(l.volumeKg,vendas.find(x=>x.id===vn.venda).produto)):"";}
+  if(e.target.classList.contains("vnFrete"))l.fretePrev=parseBR(e.target.value);
+  vnSaldoEPrevia();});
+$("#vnCompras").addEventListener("change",e=>{if(e.target.classList.contains("vnKg"))setTimeout(vnAtualizar,0);});
+$("#vnCompras").addEventListener("click",e=>{const b=e.target.closest(".vnDel");if(!b)return;vn.linhas.splice(+b.closest("tr").dataset.i,1);vnAtualizar();});
+$("#vnSalvar").addEventListener("click",vnSalvar);
+$("#vnCancelar").addEventListener("click",()=>{vnLimpar();show("contratos");});
+limparForm("compras"); limparForm("vendas");
 
 /* ---------------- parâmetros ---------------- */
 function renderParams(){
@@ -220,39 +412,37 @@ async function saveParams(){
 }
 
 /* ---------------- navegação / eventos ---------------- */
-function show(v){document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));[...$("#nav").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v)); if(v==="param")renderParams(); if(v==="usuarios")carregarUsuarios(); if(v==="novo"&&!podeEditar())v="contratos"; if(v==="contratos"){renderKpis();renderTable();} window.scrollTo(0,0);}
-function renderAll(){renderKpis();renderTable();
-  $("#dlComp").innerHTML=[...new Set(contratos.map(c=>c.comprador).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("");
-  $("#dlCid").innerHTML=[...new Set(contratos.flatMap(c=>[c.cidade,...(c.vendedores||[]).map(v=>v.cidade)]).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("");
-  $("#dlVend").innerHTML=[...new Set(contratos.flatMap(c=>(c.vendedores||[]).map(v=>v.nome)).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("");}
+function show(v){
+  if(v==="vincular"&&!podeEditar())v="contratos";
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));[...$("#nav").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  $("#posicao").hidden=!["contratos","compras","vendas"].includes(v);
+  if(v==="param")renderParams(); if(v==="usuarios")carregarUsuarios();
+  if(v==="contratos"){renderKpis();renderTable();} if(v==="compras")renderCompras(); if(v==="vendas")renderVendas();
+  window.scrollTo(0,0);}
+function renderAll(){renderPosicao();renderKpis();renderTable();renderCompras();renderVendas();renderDatalists();
+  if($("#v-vincular").classList.contains("on"))vnAtualizar();}
 
-$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="novo"&&editId===null)resetForm(null);show(b.dataset.v);});
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="vincular"&&!vn.venda)vnLimpar();show(b.dataset.v);});
 $("#fProd").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;fProd=b.dataset.p;[...$("#fProd").children].forEach(x=>x.classList.toggle("on",x===b));renderKpis();renderTable();});
 $("#fStatus").addEventListener("change",renderTable); $("#fBusca").addEventListener("input",renderTable);
 $("#btnCopy").addEventListener("click",copyTable);
 $("#tbl").addEventListener("click",e=>{
   const ed=e.target.closest("[data-edit]"), dl=e.target.closest("[data-del]");
-  if(ed){const c=contratos.find(x=>x.id===ed.dataset.edit);if(c){resetForm(c);show("novo");}}
+  if(ed){vnCarregarVenda(ed.dataset.edit);show("vincular");}
   if(dl){const c=contratos.find(x=>x.id===dl.dataset.del);if(!c)return;
-    $("#mTitle").textContent="Excluir contrato?"; $("#mText").textContent=`${c.comprador} · ${c.numero} e seus ${c.vendedores.length} vendedor(es) serão apagados.`;
-    $("#modal").classList.add("on"); $("#mYes").onclick=async()=>{$("#modal").classList.remove("on");try{await api.excluirContrato(c.id);contratos=contratos.filter(x=>x.id!==c.id);renderAll();toast("Contrato excluído.");}catch(e){toast(e.message||"Não foi possível excluir.");}};}
+    dialogo({titulo:"Desvincular contrato?",html:`A venda <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.comprador)}) e as ${c.vendedores.length} compra(s) vinculadas a ela voltam para as abas <b>Vendas</b> e <b>Compras</b>. Nenhum contrato é apagado.${c.vendedores.some(v=>v.freteReal!=null)?"<br><br><b>Atenção:</b> os fretes realizados lançados nesses vínculos serão perdidos.":""}`,ok:"Desvincular",perigo:true})
+      .then(async ok=>{ if(!ok)return; try{await api.salvarVinculos(c.id,[]); await recarregar(); toast("Contratos desvinculados.");}catch(e){toast(e.message);} });}
 });
 $("#tbl").addEventListener("change",e=>{if(e.target.classList.contains("frIn"))saveFreteInline(e.target);});
 $("#tbl").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classList.contains("frIn")){e.preventDefault();saveFreteInline(e.target);
   const all=[...$("#tbl").querySelectorAll("input.frIn")],i=all.indexOf(e.target);if(all[i+1])all[i+1].focus();}});
 $("#mNo").addEventListener("click",()=>$("#modal").classList.remove("on"));
-$("#prodPick").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setProduto(b.dataset.p);});
-$("#addVend").addEventListener("click",()=>{vendRow();updatePreview();});
-$("#vendBody").addEventListener("click",e=>{if(e.target.closest(".vDel")){e.target.closest("tr").remove();if(!$("#vendBody").children.length)vendRow();updatePreview();}});
-$("#v-novo").addEventListener("input",updatePreview);
-$("#btnSalvar").addEventListener("click",salvar);
-$("#btnCancelar").addEventListener("click",()=>{resetForm(null);show("contratos");});
 $("#btnParam").addEventListener("click",saveParams);
 
 /* ---------------- dados e login ---------------- */
 async function recarregar(){
-  const [ps,cs]=await Promise.all([api.carregarParametros(),api.carregarContratos()]);
-  params=ps; contratos=cs; loaded=true; renderAll(); updatePreview();
+  const [ps,dados]=await Promise.all([api.carregarParametros(),api.carregarTudo()]);
+  params=ps; vendas=dados.vendas; compras=dados.compras; vinculos=dados.vinculos; montar(); loaded=true; renderAll();
   if($("#v-param").classList.contains("on"))renderParams();
 }
 function aplicarPerfil(){
@@ -265,7 +455,7 @@ function aplicarPerfil(){
 let sessaoUserId=null;
 async function iniciarSessao(sessao){
   usuario=sessao?sessao.user:null;
-  if(!usuario){ sessaoUserId=null; perfil=null; aplicarPerfil(); $("#login").hidden=false; $("#userBox").hidden=true; if(pararTempoReal){pararTempoReal();pararTempoReal=null;} contratos=[]; loaded=false; renderAll(); return; }
+  if(!usuario){ sessaoUserId=null; perfil=null; aplicarPerfil(); $("#login").hidden=false; $("#userBox").hidden=true; if(pararTempoReal){pararTempoReal();pararTempoReal=null;} contratos=[]; vendas=[]; compras=[]; vinculos=[]; loaded=false; renderAll(); return; }
   if(sessaoUserId===usuario.id)return;          // só renovação de sessão
   sessaoUserId=usuario.id;
   let p=null;
@@ -404,7 +594,7 @@ $("#btnEsqueci").addEventListener("click",async()=>{
 });
 $("#btnSair").addEventListener("click",()=>api.sair());
 
-resetForm(null); renderAll();
+vnLimpar(); renderAll();
 
 if(!api.configurado){
   loaded=true; renderAll();

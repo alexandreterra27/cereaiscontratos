@@ -1,6 +1,6 @@
 # Sistema de Vinculações de Contratos – Grupo Parceiro Agronegócios
 
-Sistema web para vincular **contratos de venda (comprador)** aos **contratos de compra dos produtores (vendedores)** de **milho, soja e sorgo**, com lançamento de frete realizado e cálculo de **lucro previsto x lucro realizado**.
+Sistema web para lançar **contratos de compra (produtores)** e **contratos de venda (compradores)** de **milho, soja e sorgo**, cada um na sua aba, e depois **vinculá-los**, com lançamento de frete realizado e cálculo de **lucro previsto x lucro realizado**.
 
 `# O Agro não Para` · Grupo Parceiro Agronegócios · Varginha MG
 
@@ -8,7 +8,11 @@ Sistema web para vincular **contratos de venda (comprador)** aos **contratos de 
 
 ## O que o sistema faz
 
-- **Contratos:** tabela no modelo da planilha de vinculações (comprador, vendedores e resumo com preço médio ponderado). Tem filtros por produto e situação, busca e um botão para copiar a tabela para o Excel.
+- **Posição por produto (topo):** total comprado, total vendido, comprado sem venda e vendido sem compra, por produto e no total, em sacas.
+- **Compras:** cadastro dos contratos de compra dos produtores. A aba lista as compras que ainda têm volume sem venda, com o saldo de cada uma.
+- **Vendas:** cadastro dos contratos de venda. A aba lista as vendas que ainda têm volume sem compra.
+- **Vincular:** você digita o nº da venda e o sistema puxa os dados; depois digita os nº das compras e ele puxa também, já sugerindo o volume. Uma compra pode ser dividida entre várias vendas. Quando todo o volume de um contrato está vinculado, ele sai da aba Compras ou Vendas.
+- **Contratos:** os contratos já vinculados, no modelo da planilha (comprador, vendedores e resumo com preço médio ponderado). Tem filtros por produto e situação, busca, botão para copiar para o Excel, **Editar vínculos** e **Desvincular**, que devolve os contratos para as abas.
 - **Frete realizado:** você digita o frete em R$/sc direto na tabela e o lucro realizado é calculado na hora.
 - **Quadros do topo:** sacas fechadas por produto, lucro previsto, lucro realizado, crédito presumido, frete previsto x realizado, fretes pendentes e saldo a vincular. Cada quadro explica a própria conta ao passar o mouse.
 - **+ Novo contrato:** cadastro do comprador e dos vendedores, com cidade de entrega e cidade de retirada. Mostra uma prévia dos cálculos antes de salvar.
@@ -21,7 +25,7 @@ Sistema web para vincular **contratos de venda (comprador)** aos **contratos de 
 | | Administrador | Comercial | Consulta |
 |---|:-:|:-:|:-:|
 | Ver contratos, quadros e relatório | ✓ | ✓ | ✓ |
-| Lançar, editar e excluir contratos | ✓ | ✓ | – |
+| Lançar compras e vendas, vincular e desvincular | ✓ | ✓ | – |
 | Lançar frete realizado | ✓ | ✓ | – |
 | Alterar parâmetros | ✓ | – | – |
 | Gerenciar usuários | ✓ | – | – |
@@ -59,6 +63,7 @@ vinculacoes-cereais/
 ├─ supabase/
 │  ├─ migrations/20261112000000_estrutura_inicial.sql   tabelas, segurança, função e relatório
 │  ├─ migrations/20261112150000_perfis_de_acesso.sql    perfis e regras por perfil
+│  ├─ migrations/20261116120000_compras_vendas_independentes.sql  compras, vendas e vínculos separados
 │  ├─ functions/admin-usuarios/index.ts                 função segura que cria e gerencia usuários
 │  └─ seed.sql                 carga dos 17 contratos atuais (NÃO vai para o GitHub)
 ├─ tests/                      testes dos cálculos contra a planilha original
@@ -79,7 +84,7 @@ vinculacoes-cereais/
 1. Entre em <https://supabase.com> e clique em **New project**. Sugestão de região: **South America (São Paulo)**.
 2. No menu lateral, abra **SQL Editor** e clique em **New query**.
 3. Abra o arquivo `supabase/migrations/20261112000000_estrutura_inicial.sql`, copie todo o conteúdo, cole no editor e clique em **Run**. Isso cria as tabelas, as regras de segurança, a função de salvar e a view de relatório.
-4. Faça o mesmo com `supabase/seed.sql`, que carrega os 17 contratos de soja atuais.
+4. Faça o mesmo com `supabase/seed.sql`, que carrega os 17 contratos de soja iniciais. Depois rode as outras migrations **na ordem dos nomes**: `20261112150000_perfis_de_acesso.sql` e `20261116120000_compras_vendas_independentes.sql`. A última converte os vendedores em contratos de compra e vínculos.
 5. Para conferir, rode a consulta abaixo. O resultado deve ser 17 contratos, 35 vendedores, lucro previsto de R$ 1.227.449,73 e crédito de R$ 307.712,69.
    ```sql
    select count(distinct contrato_id) contratos, count(*) vendedores,
@@ -152,8 +157,9 @@ Sem isso, o link de "Esqueci minha senha" não volta para o sistema.
 
 ## Dia a dia
 
-- **Novo contrato:** use **+ Novo contrato**, escolha o produto, preencha o comprador e os vendedores e clique em **Salvar**.
-- **Fixar preço:** clique em **Editar** no contrato, preencha o preço e salve.
+- **Nova compra / nova venda:** use as abas **Compras** e **Vendas**. O contrato fica na aba até ser vinculado.
+- **Vincular:** na aba **Vincular**, digite o nº da venda e tecle Enter. Depois digite o nº de cada compra e tecle Enter, confira o volume e o frete previsto e clique em **Salvar vinculação**. Também dá para começar pelo botão **Vincular** de uma venda ou de uma compra.
+- **Fixar preço ou corrigir um contrato:** nas abas Compras ou Vendas, marque **mostrar também as já vinculadas**, clique em **Editar**, ajuste e salve.
 - **Frete realizado:** digite na coluna amarela da tabela e tecle Enter.
 - **Excel:** use **Copiar tabela (Excel)** e cole com Ctrl+V.
 - **Relatórios avançados:** a view `vw_vinculacoes` traz uma linha por vendedor com todos os cálculos. Dá para consultar no SQL Editor ou ligar no Power BI ou no Excel pela API do Supabase.
