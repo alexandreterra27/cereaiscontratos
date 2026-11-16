@@ -11,7 +11,7 @@ Sistema web para lançar **contratos de compra (produtores)** e **contratos de v
 - **Posição por produto (topo):** total comprado, total vendido, comprado sem venda e vendido sem compra, por produto e no total, em sacas.
 - **Compras:** cadastro dos contratos de compra dos produtores. A aba lista as compras que ainda têm volume sem venda, com o saldo de cada uma.
 - **Vendas:** cadastro dos contratos de venda. A aba lista as vendas que ainda têm volume sem compra.
-- **Vincular:** você digita o nº da venda e o sistema puxa os dados; depois digita os nº das compras e ele puxa também, já sugerindo o volume. Uma compra pode ser dividida entre várias vendas. Quando todo o volume de um contrato está vinculado, ele sai da aba Compras ou Vendas.
+- **+ Inserir contrato:** o mesmo formulário da planilha (comprador em cima, vendedores embaixo). Ao digitar o nº de uma venda que está na aba Vendas, os dados são puxados; ao digitar o nº de uma compra que está na aba Compras, a linha do vendedor é preenchida. Número que não está nas abas vira contrato novo ao salvar. Uma compra pode ser dividida entre várias vendas. Quando todo o volume de um contrato está vinculado, ele sai da aba Compras ou Vendas; se sobrar saldo, fica lá com o que falta.
 - **Contratos:** os contratos já vinculados, no modelo da planilha (comprador, vendedores e resumo com preço médio ponderado). Tem filtros por produto e situação, busca, botão para copiar para o Excel, **Editar vínculos** e **Desvincular**, que devolve os contratos para as abas.
 - **Frete realizado:** você digita o frete em R$/sc direto na tabela e o lucro realizado é calculado na hora.
 - **Quadros do topo:** sacas fechadas por produto, lucro previsto, lucro realizado, crédito presumido, frete previsto x realizado, fretes pendentes e saldo a vincular. Cada quadro explica a própria conta ao passar o mouse.
@@ -64,6 +64,7 @@ vinculacoes-cereais/
 │  ├─ migrations/20261112000000_estrutura_inicial.sql   tabelas, segurança, função e relatório
 │  ├─ migrations/20261112150000_perfis_de_acesso.sql    perfis e regras por perfil
 │  ├─ migrations/20261116120000_compras_vendas_independentes.sql  compras, vendas e vínculos separados
+│  ├─ migrations/20261116140000_salvar_vinculacao.sql             grava a tela Inserir contrato de uma vez
 │  ├─ functions/admin-usuarios/index.ts                 função segura que cria e gerencia usuários
 │  └─ seed.sql                 carga dos 17 contratos atuais (NÃO vai para o GitHub)
 ├─ tests/                      testes dos cálculos contra a planilha original
@@ -84,7 +85,7 @@ vinculacoes-cereais/
 1. Entre em <https://supabase.com> e clique em **New project**. Sugestão de região: **South America (São Paulo)**.
 2. No menu lateral, abra **SQL Editor** e clique em **New query**.
 3. Abra o arquivo `supabase/migrations/20261112000000_estrutura_inicial.sql`, copie todo o conteúdo, cole no editor e clique em **Run**. Isso cria as tabelas, as regras de segurança, a função de salvar e a view de relatório.
-4. Faça o mesmo com `supabase/seed.sql`, que carrega os 17 contratos de soja iniciais. Depois rode as outras migrations **na ordem dos nomes**: `20261112150000_perfis_de_acesso.sql` e `20261116120000_compras_vendas_independentes.sql`. A última converte os vendedores em contratos de compra e vínculos.
+4. Faça o mesmo com `supabase/seed.sql`, que carrega os 17 contratos de soja iniciais. Depois rode as outras migrations **na ordem dos nomes**: `20261112150000_perfis_de_acesso.sql` `20261116120000_compras_vendas_independentes.sql` e `20261116140000_salvar_vinculacao.sql`. A última converte os vendedores em contratos de compra e vínculos.
 5. Para conferir, rode a consulta abaixo. O resultado deve ser 17 contratos, 35 vendedores, lucro previsto de R$ 1.227.449,73 e crédito de R$ 307.712,69.
    ```sql
    select count(distinct contrato_id) contratos, count(*) vendedores,
@@ -158,7 +159,7 @@ Sem isso, o link de "Esqueci minha senha" não volta para o sistema.
 ## Dia a dia
 
 - **Nova compra / nova venda:** use as abas **Compras** e **Vendas**. O contrato fica na aba até ser vinculado.
-- **Vincular:** na aba **Vincular**, digite o nº da venda e tecle Enter. Depois digite o nº de cada compra e tecle Enter, confira o volume e o frete previsto e clique em **Salvar vinculação**. Também dá para começar pelo botão **Vincular** de uma venda ou de uma compra.
+- **Inserir contrato:** em **+ Inserir contrato**, preencha como sempre. Se o nº da venda ou de uma compra já estiver nas abas Vendas ou Compras, tecle Enter no campo do nº que os dados são puxados. Também dá para começar pelo botão **Vincular** de uma venda ou de uma compra nessas abas.
 - **Fixar preço ou corrigir um contrato:** nas abas Compras ou Vendas, marque **mostrar também as já vinculadas**, clique em **Editar**, ajuste e salve.
 - **Frete realizado:** digite na coluna amarela da tabela e tecle Enter.
 - **Excel:** use **Copiar tabela (Excel)** e cole com Ctrl+V.

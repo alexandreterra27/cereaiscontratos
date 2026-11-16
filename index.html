@@ -35,7 +35,7 @@
     <button data-v="contratos" class="on">Contratos</button>
     <button data-v="compras">Compras <span class="cnt" id="cntCompras"></span></button>
     <button data-v="vendas">Vendas <span class="cnt" id="cntVendas"></span></button>
-    <button data-v="vincular" class="so-edicao">Vincular</button>
+    <button data-v="novo" class="so-edicao">+ Inserir contrato</button>
     <button data-v="param">Parâmetros</button>
     <button data-v="usuarios" class="so-admin">Usuários</button>
   </nav>
@@ -120,45 +120,56 @@
     <div class="tablewrap"><table class="grid lista" id="tblVendas"></table></div>
   </section>
 
-  <!-- ===================== VINCULAR ===================== -->
-  <section class="view" id="v-vincular">
+  <!-- ===================== INSERIR / EDITAR CONTRATO ===================== -->
+  <section class="view" id="v-novo">
     <div class="stack">
       <div class="card">
-        <h2 id="vnTitulo">1. Contrato de venda</h2>
-        <div class="row">
-          <input type="text" id="vnVendaBusca" list="dlVendasAbertas" placeholder="Digite o nº do contrato de venda (ou o comprador)" style="flex:1;min-width:280px" autocomplete="off">
-          <button class="btn" type="button" id="vnPuxarVenda">Puxar</button>
-          <button class="btn" type="button" id="vnTrocarVenda" hidden>Trocar venda</button>
+        <h2 id="formTitle">Inserir contrato</h2>
+        <div class="row" style="margin-bottom:14px">
+          <span class="note" style="font-weight:600">Produto:</span>
+          <div class="prodpick" id="prodPick">
+            <button type="button" data-p="milho" class="on">Milho</button>
+            <button type="button" data-p="soja">Soja</button>
+            <button type="button" data-p="sorgo">Sorgo</button>
+          </div>
         </div>
-        <div id="vnEscolhaVenda"></div>
-        <div id="vnVenda" class="vn-card" hidden></div>
+        <h2 style="margin-top:6px">Comprador</h2>
+        <div class="fgrid">
+          <label class="f">Data<input type="date" id="cData"></label>
+          <label class="f">Nº contrato<input type="text" id="cNum" list="dlVendasAbertas" autocomplete="off" placeholder="digite e tecle Enter"></label>
+          <label class="f" style="grid-column:span 2">Empresa compradora<input type="text" id="cComp" list="dlComp"></label>
+          <label class="f">Cidade de entrega<input type="text" id="cCid" value="SANTOS/SP" list="dlCid"></label>
+          <label class="f">Volume (kg)<input type="text" id="cKg" inputmode="decimal"></label>
+          <label class="f">Preço (R$/sc)<input type="text" id="cPreco" inputmode="decimal" placeholder="em branco = A FIXAR"></label>
+        </div>
+        <div class="origem" id="cOrigem"></div>
+        <div class="note" id="cInfo" style="margin-top:8px"></div>
       </div>
 
-      <div class="card" id="vnCardCompras" hidden>
-        <h2>2. Contratos de compra</h2>
-        <div class="row">
-          <input type="text" id="vnCompraBusca" list="dlComprasAbertas" placeholder="Digite o nº do contrato de compra (ou o produtor)" style="flex:1;min-width:280px" autocomplete="off">
-          <button class="btn" type="button" id="vnPuxarCompra">Puxar</button>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <h2 style="margin:0">Vendedores vinculados</h2>
+          <button class="btn" id="addVend" type="button">+ Adicionar vendedor</button>
         </div>
-        <div id="vnEscolhaCompra"></div>
-        <div style="overflow:auto;margin-top:10px">
-          <table class="vend">
-            <thead><tr><th>Nº compra</th><th>Produtor</th><th>Cidade de retirada</th><th>Preço (R$/sc)</th><th>Saldo da compra</th><th style="width:130px">Volume a vincular (kg)</th><th style="width:70px">Sacas</th><th style="width:110px">Frete previsto (R$/sc)</th><th style="width:40px"></th></tr></thead>
-            <tbody id="vnCompras"></tbody>
-          </table>
+        <p class="note" style="margin:0 0 8px">Digite o nº do contrato de compra e tecle Enter: se ele estiver na aba <b>Compras</b>, os dados são puxados. Se não estiver, preencha a linha normalmente que o contrato é criado.</p>
+        <div style="overflow:auto">
+        <table class="vend">
+          <thead><tr><th style="width:130px">Data</th><th style="width:130px">Nº contrato</th><th>Produtor / empresa</th><th style="width:150px">Cidade de retirada</th><th style="width:120px">Volume (kg)</th><th style="width:80px">Sacas</th><th style="width:120px">Preço (R$/sc)</th><th style="width:110px">Frete previsto (R$/sc)</th><th style="width:40px"></th></tr></thead>
+          <tbody id="vendBody"></tbody>
+        </table>
         </div>
-        <div class="row" style="margin-top:10px"><span class="note">Saldo da venda depois desta vinculação:</span> <span class="saldo" id="vnSaldo">-</span></div>
+        <div class="row" style="margin-top:10px"><span class="note">Saldo a vincular:</span> <span class="saldo" id="saldoInfo">-</span></div>
       </div>
 
-      <div class="card" id="vnCardPrevia" hidden>
+      <div class="card">
         <h2>Prévia</h2>
         <div class="tablewrap" style="max-height:none"><table class="grid" id="preview"></table></div>
       </div>
 
-      <div class="row" id="vnAcoes" hidden>
-        <button class="btn pri" id="vnSalvar" type="button">Salvar vinculação</button>
-        <button class="btn" id="vnCancelar" type="button">Cancelar</button>
-        <span class="note" id="vnMsg"></span>
+      <div class="row">
+        <button class="btn pri" id="btnSalvar" type="button">Salvar contrato</button>
+        <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+        <span class="note" id="formMsg"></span>
       </div>
     </div>
   </section>

@@ -141,8 +141,6 @@ function montar(){
 }
 const sc=(kg,produto)=>kg/kgS(produto);
 const hoje=()=>new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
-const rotuloVenda=v=>`${v.numero||"s/ nº"} · ${v.comprador} · ${PNAME[v.produto]} · saldo ${f0.format(sc(Math.max(saldoVenda.get(v.id)||0,0),v.produto))} sc`;
-const rotuloCompra=c=>`${c.numero||"s/ nº"} · ${c.produtor} · ${PNAME[c.produto]} · saldo ${f0.format(sc(Math.max(vnDisponivelCompra(c.id),0),c.produto))} sc`;
 const opt=x=>`<option value="${esc(x)}">`;
 
 /* ---------------- posição por produto ---------------- */
@@ -165,9 +163,11 @@ function renderDatalists(){
   $("#dlComp").innerHTML=uniq(vendas.map(v=>v.comprador)).map(opt).join("");
   $("#dlProdutor").innerHTML=uniq(compras.map(c=>c.produtor)).map(opt).join("");
   $("#dlCid").innerHTML=uniq([...vendas.map(v=>v.cidade),...compras.map(c=>c.cidade)]).map(opt).join("");
-  $("#dlVendasAbertas").innerHTML=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0).sort(porData).map(v=>opt(rotuloVenda(v))).join("");
-  const venda=vn.venda&&vendas.find(v=>v.id===vn.venda);
-  $("#dlComprasAbertas").innerHTML=venda?compras.filter(c=>c.produto===venda.produto&&vnDisponivelCompra(c.id)>0&&!vn.linhas.some(l=>l.compraId===c.id)).sort(porData).map(c=>opt(rotuloCompra(c))).join(""):"";
+  // sugestões ao digitar o nº: só o que está nas abas Vendas e Compras
+  const optL=(valor,rot)=>`<option value="${esc(valor)}" label="${esc(rot)}">`;
+  $("#dlVendasAbertas").innerHTML=vendas.filter(v=>v.numero&&(saldoVenda.get(v.id)||0)>0).sort(porData).map(v=>optL(v.numero,`${v.comprador} · ${PNAME[v.produto]} · ${f0.format(saldoVenda.get(v.id))} kg sem compra`)).join("");
+  const usadas=new Set([...document.querySelectorAll("#vendBody tr")].map(tr=>tr.dataset.cid).filter(Boolean));
+  $("#dlComprasAbertas").innerHTML=compras.filter(c=>c.numero&&c.produto===fProduto&&!usadas.has(c.id)&&dispCompra(c.id)>0).sort(porData).map(c=>optL(c.numero,`${c.produtor} · ${f0.format(dispCompra(c.id))} kg livres`)).join("");
 }
 const porData=(a,b)=>((b.data||"")+(b.numero||"")).localeCompare((a.data||"")+(a.numero||""));
 
@@ -254,115 +254,155 @@ async function excluirDaLista(tipo,id){
   try{ await F[tipo].excluir(id); if(editando[tipo]===id)limparForm(tipo); await recarregar(); toast("Contrato excluído."); }catch(e){ toast(e.message); }
 }
 
-/* ---------------- Vincular ---------------- */
-const vn={venda:null,linhas:[],compraPendente:null};
-function vnDisponivelCompra(compraId){
-  // saldo da compra somando de volta o que esta venda já usa dela (será regravado)
-  const proprio=vn.venda?vinculos.filter(l=>l.vendaId===vn.venda&&l.compraId===compraId).reduce((s,l)=>s+l.volumeKg,0):0;
+/* ---------------- Inserir contrato (modelo da planilha) ---------------- */
+// form.vendaId: venda puxada da aba Vendas ou em edição; null = venda nova
+const form={vendaId:null,editando:false};
+let fProduto="milho";
+// quanto da compra está livre para ESTA venda (saldo + o que esta venda já usa dela)
+function dispCompra(compraId){
+  const proprio=form.vendaId?vinculos.filter(l=>l.vendaId===form.vendaId&&l.compraId===compraId).reduce((s,l)=>s+l.volumeKg,0):0;
   return (saldoCompra.get(compraId)||0)+proprio;
 }
-function vnLimpar(){
-  vn.venda=null; vn.linhas=[]; vn.compraPendente=null;
-  $("#vnVendaBusca").value=""; $("#vnVendaBusca").disabled=false; $("#vnPuxarVenda").hidden=false; $("#vnTrocarVenda").hidden=true;
-  $("#vnEscolhaVenda").innerHTML=""; $("#vnEscolhaCompra").innerHTML=""; $("#vnMsg").textContent=""; $("#vnTitulo").textContent="1. Contrato de venda";
-  vnAtualizar();
+const rotuloVenda=v=>`${v.numero||"s/ nº"} · ${v.comprador} · ${PNAME[v.produto]} · saldo ${f0.format(Math.max(saldoVenda.get(v.id)||0,0))} kg`;
+const rotuloCompra=c=>`${c.numero||"s/ nº"} · ${c.produtor} · ${PNAME[c.produto]} · saldo ${f0.format(Math.max(dispCompra(c.id),0))} kg`;
+
+function vendRow(v){
+  v=v||{};
+  const tr=document.createElement("tr");
+  tr.dataset.real=isN(v.freteReal)?String(v.freteReal):""; tr.dataset.vid=v.id||""; tr.dataset.cid=v.compraId||"";
+  tr.innerHTML=`<td><input type="date" class="vData" value="${esc(v.data||"")}"></td>`+
+    `<td><input type="text" class="vNum" list="dlComprasAbertas" autocomplete="off" value="${esc(v.numero||"")}"><span class="orig"></span></td>`+
+    `<td><input type="text" class="vNome" list="dlProdutor" value="${esc(v.nome||"")}"></td>`+
+    `<td><input type="text" class="vCid" list="dlCid" placeholder="ex.: VARGINHA/MG" value="${esc(v.cidade||"")}"></td>`+
+    `<td><input type="text" class="vKg" inputmode="decimal" value="${esc(toBR(v.volumeKg,0))}"></td>`+
+    `<td class="mono vSc note"></td>`+
+    `<td><input type="text" class="vPreco" inputmode="decimal" placeholder="A FIXAR" value="${esc(toBR(v.preco,2))}"></td>`+
+    `<td><input type="text" class="vFrete" inputmode="decimal" placeholder="0,00" value="${esc(toBR(v.fretePrev,2))}"></td>`+
+    `<td><button type="button" class="btn sm danger vDel" title="Tirar esta linha">✕</button></td>`;
+  $("#vendBody").appendChild(tr); marcarOrigem(tr);
+  return tr;
 }
-function vnCarregarVenda(id){
-  const v=vendas.find(x=>x.id===id); if(!v)return;
-  vn.venda=id; vn.linhas=vinculos.filter(l=>l.vendaId===id).sort((a,b)=>a.ordem-b.ordem).map(l=>({id:l.id,compraId:l.compraId,volumeKg:l.volumeKg,fretePrev:l.fretePrev,freteReal:l.freteReal}));
-  $("#vnVendaBusca").value=rotuloVenda(v); $("#vnVendaBusca").disabled=true; $("#vnPuxarVenda").hidden=true; $("#vnTrocarVenda").hidden=false; $("#vnEscolhaVenda").innerHTML="";
-  $("#vnTitulo").textContent=vn.linhas.length?"1. Contrato de venda (editando vínculos)":"1. Contrato de venda";
-  if(vn.compraPendente){ const c=compras.find(x=>x.id===vn.compraPendente); vn.compraPendente=null; if(c)vnAdicionarCompra(c.id,true); }
-  vnAtualizar(); setTimeout(()=>$("#vnCompraBusca").focus(),50);
+function marcarOrigem(tr){
+  const o=tr.querySelector(".orig"), cid=tr.dataset.cid;
+  tr.classList.toggle("puxado",!!cid);
+  if(cid){const c=compras.find(x=>x.id===cid); const d=dispCompra(cid); o.className="orig puxado"; o.textContent=`✓ da aba Compras · livre ${f0.format(d)} kg`; o.title=c?`Contrato de ${f0.format(c.volumeKg)} kg; o que não for vinculado aqui continua na aba Compras.`:"";}
+  else{const tem=tr.querySelector(".vNum").value.trim()||tr.querySelector(".vNome").value.trim(); o.className="orig novo"; o.textContent=tem?"contrato novo":""; o.title="";}
 }
-function buscar(lista,texto,rotulo,campoNome){
-  const q=texto.trim().toLowerCase(); if(!q)return [];
-  const exato=lista.filter(x=>rotulo(x).toLowerCase()===q); if(exato.length)return exato;
-  const num=lista.filter(x=>(x.numero||"").toLowerCase()===q); if(num.length)return num;
-  return lista.filter(x=>(x.numero||"").toLowerCase().includes(q)||(x[campoNome]||"").toLowerCase().includes(q));
+function readForm(strict){
+  const errs=[]; const num=(s,label,req)=>{const n=parseBR(s);if(Number.isNaN(n)){errs.push(`${label}: número inválido`);return null;} if(req&&(n==null||n<=0))errs.push(`${label}: obrigatório`);return n;};
+  const c={id:form.vendaId,produto:fProduto,data:$("#cData").value||"",numero:$("#cNum").value.trim().toUpperCase(),comprador:$("#cComp").value.trim().toUpperCase(),cidade:$("#cCid").value.trim().toUpperCase(),
+    volumeKg:num($("#cKg").value,"Volume do comprador",true),preco:num($("#cPreco").value,"Preço do comprador"),vendedores:[]};
+  if(!c.comprador)errs.push("Empresa compradora: obrigatória");
+  [...$("#vendBody").children].forEach((tr,i)=>{
+    const g=s=>tr.querySelector(s).value;
+    const v={id:tr.dataset.vid||null,compraId:tr.dataset.cid||null,data:g(".vData")||"",numero:g(".vNum").trim().toUpperCase(),nome:g(".vNome").trim().toUpperCase(),cidade:g(".vCid").trim().toUpperCase(),
+      volumeKg:num(g(".vKg"),`Vendedor ${i+1} volume`,true),preco:num(g(".vPreco"),`Vendedor ${i+1} preço`),fretePrev:num(g(".vFrete"),`Vendedor ${i+1} frete`),
+      freteReal:tr.dataset.real!==""?Number(tr.dataset.real):null};
+    if(!v.nome&&!g(".vKg")&&!v.compraId)return; if(!v.nome)errs.push(`Vendedor ${i+1}: nome obrigatório`);
+    if(strict&&v.compraId&&isN(v.volumeKg)&&v.volumeKg>dispCompra(v.compraId)+0.0005)errs.push(`Vendedor ${v.numero||i+1}: a compra só tem ${f0.format(dispCompra(v.compraId))} kg livres`);
+    c.vendedores.push(v);
+  });
+  if(strict&&!c.vendedores.length)errs.push("Lance pelo menos um vendedor");
+  if(strict&&c.vendedores.length>1){const ids=c.vendedores.map(v=>v.compraId).filter(Boolean); if(new Set(ids).size<ids.length)errs.push("A mesma compra está em duas linhas");}
+  return {c,errs};
 }
-function escolha(el,itens,rotulo,acao){
-  el.innerHTML=`<div class="escolha"><span class="note">Encontrei ${itens.length} contratos. Escolha um:</span>${itens.slice(0,12).map(x=>`<button type="button" class="btn sm" data-id="${esc(x.id)}">${esc(rotulo(x))}</button>`).join("")}</div>`;
-  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{el.innerHTML="";acao(b.dataset.id);});
-}
-function vnPuxarVenda(){
-  const txt=$("#vnVendaBusca").value, el=$("#vnEscolhaVenda");
-  const abertas=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0);
-  let achou=buscar(abertas,txt,rotuloVenda,"comprador"); if(!achou.length)achou=buscar(vendas,txt,rotuloVenda,"comprador");
-  if(!achou.length){el.innerHTML=`<p class="note prej">Nenhum contrato de venda com "${esc(txt)}". Lance a venda na aba Vendas.</p>`;return;}
-  if(achou.length===1)return vnCarregarVenda(achou[0].id);
-  escolha(el,achou,rotuloVenda,vnCarregarVenda);
-}
-function vnAdicionarCompra(id,silencioso){
-  const c=compras.find(x=>x.id===id), v=vendas.find(x=>x.id===vn.venda); if(!c||!v)return;
-  if(c.produto!==v.produto){toast(`A compra ${c.numero||""} é de ${PNAME[c.produto]} e a venda é de ${PNAME[v.produto]}.`);return;}
-  if(vn.linhas.some(l=>l.compraId===id)){if(!silencioso)toast("Essa compra já está na lista.");return;}
-  const disp=vnDisponivelCompra(id), restante=(v.volumeKg||0)-vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0);
-  if(disp<=0){toast("Essa compra não tem saldo para vincular.");return;}
-  vn.linhas.push({id:null,compraId:id,volumeKg:Math.max(Math.min(disp,restante>0?restante:disp),0)||disp,fretePrev:null,freteReal:null});
-  $("#vnCompraBusca").value=""; $("#vnEscolhaCompra").innerHTML=""; vnAtualizar();
-  const inp=[...document.querySelectorAll("#vnCompras .vnKg")].pop(); if(inp&&!silencioso){inp.focus();inp.select();}
-}
-function vnPuxarCompra(){
-  const v=vendas.find(x=>x.id===vn.venda); if(!v)return;
-  const txt=$("#vnCompraBusca").value, el=$("#vnEscolhaCompra");
-  const mesmas=compras.filter(c=>c.produto===v.produto&&!vn.linhas.some(l=>l.compraId===c.id));
-  let achou=buscar(mesmas.filter(c=>vnDisponivelCompra(c.id)>0),txt,rotuloCompra,"produtor");
-  if(!achou.length){const outras=buscar(compras,txt,rotuloCompra,"produtor");
-    el.innerHTML=`<p class="note prej">${outras.length?`Achei ${outras.length} compra(s) com "${esc(txt)}", mas sem saldo ou de outro produto (a venda é de ${PNAME[v.produto]}).`:`Nenhum contrato de compra com "${esc(txt)}". Lance a compra na aba Compras.`}</p>`;return;}
-  if(achou.length===1)return vnAdicionarCompra(achou[0].id);
-  escolha(el,achou,rotuloCompra,vnAdicionarCompra);
-}
-function vnAtualizar(){
-  const v=vn.venda&&vendas.find(x=>x.id===vn.venda);
-  $("#vnVenda").hidden=!v; $("#vnCardCompras").hidden=!v; $("#vnCardPrevia").hidden=!v; $("#vnAcoes").hidden=!v;
-  renderDatalists();
-  if(!v)return;
-  const sv=saldoVenda.get(v.id)||0;
-  $("#vnVenda").innerHTML=[["Produto",prodTag(v.produto)],["Nº contrato",esc(v.numero||"s/ nº")],["Data",D(v.data)||"-"],["Comprador",esc(v.comprador)],["Cidade de entrega",esc(v.cidade||"-")],
-    ["Volume",`${N0(v.volumeKg)} kg · ${N2(sc(v.volumeKg,v.produto))} sc`],["Preço",isN(v.preco)?R(v.preco):'<span class="fx">A FIXAR</span>'],["Saldo hoje",`${N2(sc(sv,v.produto))} sc`]]
-    .map(([k,x])=>`<div><div class="k">${k}</div><div class="v">${x}</div></div>`).join("");
-  const tb=$("#vnCompras");
-  tb.innerHTML=vn.linhas.length?vn.linhas.map((l,i)=>{const c=compras.find(x=>x.id===l.compraId)||{};const disp=vnDisponivelCompra(l.compraId);const passa=(l.volumeKg||0)>disp+0.0005;
-    return `<tr data-i="${i}"><td><b>${esc(c.numero||"s/ nº")}</b></td><td>${esc(c.produtor)}</td><td>${esc(c.cidade||"-")}</td><td class="mono">${isN(c.preco)?R(c.preco):'<span class="fx">A FIXAR</span>'}</td>`+
-      `<td class="mono ${passa?"prej":""}">${N0(disp)} kg${passa?" ⚠":""}</td>`+
-      `<td><input type="text" class="vnKg" inputmode="decimal" value="${esc(toBR(l.volumeKg,0))}"></td><td class="mono note">${N2(sc(l.volumeKg||0,v.produto))}</td>`+
-      `<td><input type="text" class="vnFrete" inputmode="decimal" placeholder="0,00" value="${esc(toBR(l.fretePrev,2))}"></td>`+
-      `<td><button type="button" class="btn sm danger vnDel" title="Tirar desta vinculação">✕</button></td></tr>`;}).join("")
-    :`<tr><td colspan="9" class="note" style="padding:12px">Nenhuma compra ainda. Digite o nº do contrato de compra acima e clique em Puxar.</td></tr>`;
-  vnSaldoEPrevia();
-}
-function vnSaldoEPrevia(){
-  const v=vendas.find(x=>x.id===vn.venda); if(!v)return;
-  const usado=vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0), resto=(v.volumeKg||0)-usado, el=$("#vnSaldo");
-  el.textContent=`${f0.format(resto)} kg (${N2(sc(resto,v.produto))} sc)`+(resto<0?" · passa do volume da venda":resto>0?" · continua na aba Vendas com esse saldo":" · venda totalmente vinculada");
-  el.style.color=resto<0?"var(--prej)":resto>0?"var(--warn)":"var(--lucro)";
-  const c={...v,vendedores:vn.linhas.map(l=>{const cp=compras.find(x=>x.id===l.compraId)||{};return {id:l.id,nome:cp.produtor,cidade:cp.cidade,volumeKg:l.volumeKg||0,preco:isN(cp.preco)?cp.preco:null,fretePrev:l.fretePrev,freteReal:l.freteReal};})};
-  const k=calc(c), r=k.r;
-  let h=`<thead><tr>${["TIPO","EMPRESA / PRODUTOR","VOLUME (sc)","PREÇO (R$/sc)","VALOR TOTAL (R$)","DIFERENÇA (R$/sc)","FRETE (R$/sc)","RESULTADO (R$/sc)","LUCRO PREVISTO (R$)","CRÉDITO PRESUMIDO (R$)","RESULTADO + CRÉDITO (R$/sc)"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
-  h+=`<tr class="buyer"><td>COMPRADOR</td><td>${esc(v.comprador)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
-  k.vs.forEach(x=>h+=`<tr><td>VENDEDOR</td><td>${esc(x.v.nome)}${x.v.cidade?` <span class="note">· ${esc(x.v.cidade)}</span>`:""}</td><td class="n">${N2(x.sc)}</td>${cN(x.P,R,1)}${cN(x.valor,R,1)}${cN(x.dif,R,1)}<td class="n">${x.fp?R(x.fp):"-"}</td>${cN(x.res,R,1)}${mv(x.resTot,1)}${cN(x.cred,R,1)}${cN(x.resCred,R,1)}</tr>`);
-  h+=`<tr class="resumo"><td>RESUMO</td><td>${k.vs.length} compra(s)</td><td class="n">${N2(r.scT)}</td>${cN(r.precoM,R,1)}${cN(r.valorT,R,1)}${cN(r.difM,R,1)}<td class="n">${r.freteM?R(r.freteM):"-"}</td>${cN(r.resM,R,1)}${mv(r.resTotT,1)}${cN(r.credT,R,1)}${cN(r.resCredM,R,1)}</tr></tbody>`;
+function updatePreview(){
+  const {c}=readForm(false), k=calc({...c,volumeKg:c.volumeKg||0});
+  [...$("#vendBody").children].forEach(tr=>{const kg=parseBR(tr.querySelector(".vKg").value);tr.querySelector(".vSc").textContent=isN(kg)?N2(kg/k.kg):"";});
+  $("#cInfo").textContent=isN(c.volumeKg)?`${N2(c.volumeKg/k.kg)} sacas de ${k.kg} kg · crédito presumido ${toBR(k.cr*100,2)}%`+(isN(c.preco)?` · valor total ${R(c.volumeKg/k.kg*c.preco)}`:" · preço A FIXAR"):"";
+  const s=$("#saldoInfo"); if(isN(c.volumeKg)){s.textContent=`${f0.format(k.saldoKg)} kg (${N2(k.saldoKg/k.kg)} sc)`+(k.saldoKg>0?" · essa parte fica na aba Vendas":k.saldoKg<0?" · vendedores passam do volume do comprador":""); s.style.color=k.saldoKg<0?"var(--prej)":k.saldoKg>0?"var(--warn)":"var(--lucro)";} else s.textContent="-";
+  const r=k.r;
+  let h=`<thead><tr>${["TIPO","EMPRESA / PRODUTOR","VOLUME (sc)","PREÇO (R$/sc)","VALOR TOTAL (R$)","DIFERENÇA (R$/sc)","FRETE (R$/sc)","RESULTADO (R$/sc)","RESULTADO TOTAL (R$)","CRÉDITO PRESUMIDO (R$)","RESULTADO + CRÉDITO (R$/sc)"].map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  h+=`<tr class="buyer"><td>COMPRADOR</td><td>${esc(c.comprador)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  k.vs.forEach(x=>h+=`<tr><td>VENDEDOR</td><td>${esc(x.v.nome)}${x.v.cidade?` <span class="note">· ${esc(x.v.cidade)}</span>`:""}</td><td class="n">${N2(x.sc)}</td>${cN(x.P,R,1)}${cN(x.valor,R,1)}${cN(x.dif,R,1)}<td class="n">${x.fp?R(x.fp):"-"}</td>${cN(x.res,R,1)}${cN(x.resTot,R,1)}${cN(x.cred,R,1)}${cN(x.resCred,R,1)}</tr>`);
+  h+=`<tr class="resumo"><td>RESUMO</td><td>${k.vs.length} vendedor(es)</td><td class="n">${N2(r.scT)}</td>${cN(r.precoM,R,1)}${cN(r.valorT,R,1)}${cN(r.difM,R,1)}<td class="n">${r.freteM?R(r.freteM):"-"}</td>${cN(r.resM,R,1)}${cN(r.resTotT,R,1)}${cN(r.credT,R,1)}${cN(r.resCredM,R,1)}</tr></tbody>`;
   $("#preview").innerHTML=h;
 }
-async function vnSalvar(){
-  const v=vendas.find(x=>x.id===vn.venda), msg=$("#vnMsg"); if(!v)return;
-  const erros=[];
-  vn.linhas.forEach((l,i)=>{const c=compras.find(x=>x.id===l.compraId)||{};
-    if(!isN(l.volumeKg)||l.volumeKg<=0)erros.push(`compra ${c.numero||i+1}: volume inválido`);
-    else if(l.volumeKg>vnDisponivelCompra(l.compraId)+0.0005)erros.push(`compra ${c.numero||i+1}: passa do saldo (${f0.format(vnDisponivelCompra(l.compraId))} kg)`);
-    if(Number.isNaN(l.fretePrev))erros.push(`compra ${c.numero||i+1}: frete inválido`);});
-  const usado=vn.linhas.reduce((s,l)=>s+(l.volumeKg||0),0);
-  if(usado>(v.volumeKg||0)+0.0005)erros.push(`a soma (${f0.format(usado)} kg) passa do volume da venda (${f0.format(v.volumeKg)} kg)`);
-  if(erros.length){msg.innerHTML=`<span class="prej">${esc(erros.join(" · "))}</span>`;return;}
-  const tinha=vinculos.some(l=>l.vendaId===v.id);
-  if(!vn.linhas.length){ if(!tinha){msg.innerHTML='<span class="prej">Puxe pelo menos um contrato de compra.</span>';return;}
-    const ok=await dialogo({titulo:"Desvincular tudo?",html:"Você tirou todas as compras. A venda e as compras voltam para as abas Vendas e Compras.",ok:"Desvincular",perigo:true}); if(!ok)return; }
-  const b=$("#vnSalvar"); b.disabled=true; msg.textContent="Salvando…";
-  const n=vn.linhas.length;
-  try{ await api.salvarVinculos(v.id,vn.linhas); await recarregar(); vnLimpar(); show(n?"contratos":"vendas"); toast(n?"Vinculação salva.":"Contratos desvinculados."); }
-  catch(e){ msg.innerHTML=`<span class="prej">${esc(e.message)}</span>`; }
-  finally{ b.disabled=false; }
+function setProduto(p){fProduto=p;[...$("#prodPick").children].forEach(b=>b.classList.toggle("on",b.dataset.p===p));renderDatalists();updatePreview();}
+function travarProduto(){const trava=!!form.vendaId||[...$("#vendBody").children].some(tr=>tr.dataset.cid);[...$("#prodPick").children].forEach(b=>b.disabled=trava&&!b.classList.contains("on"));}
+function origemVenda(){
+  const el=$("#cOrigem");
+  if(!form.vendaId){el.innerHTML=$("#cNum").value.trim()||$("#cComp").value.trim()?'<span class="note">Contrato de venda novo: será criado ao salvar.</span>':"";return;}
+  const v=vendas.find(x=>x.id===form.vendaId); if(!v){el.innerHTML="";return;}
+  el.innerHTML=form.editando?`<span class="tag pill-l">editando</span><span class="note">Alterações aqui atualizam o contrato de venda ${esc(v.numero||"")}.</span>`
+    :`<span class="tag pill-l">✓ puxado da aba Vendas</span><span class="note">Saldo sem compra: ${f0.format(Math.max(saldoVenda.get(v.id)||0,0))} kg. O que não for vinculado continua na aba Vendas.</span>`;
+}
+function resetForm(c){
+  form.vendaId=c?c.id:null; form.editando=!!c;
+  $("#formTitle").textContent=c?`Editar contrato ${c.numero||""}`:"Inserir contrato";
+  $("#cData").value=c?c.data||"":hoje();
+  $("#cNum").value=c?c.numero||"":""; $("#cComp").value=c?c.comprador||"":""; $("#cCid").value=c?c.cidade||"":"SANTOS/SP";
+  $("#cKg").value=c?toBR(c.volumeKg,0):""; $("#cPreco").value=c?toBR(c.preco,2):"";
+  $("#vendBody").innerHTML=""; (c&&c.vendedores&&c.vendedores.length?c.vendedores:[null]).forEach(vendRow);
+  $("#formMsg").textContent=""; [...$("#prodPick").children].forEach(b=>b.disabled=false); setProduto(c?c.produto||"milho":"milho"); origemVenda(); travarProduto();
+}
+async function escolherEntre(titulo,itens,rotulo){
+  if(itens.length===1)return itens[0];
+  const id=await dialogo({titulo,html:`<p style="margin:0 0 8px">Existe mais de um contrato com esse número. Qual deles?</p><div class="escolha">${itens.slice(0,15).map((x,i)=>`<label class="chk" style="font-size:13px;color:var(--ink)"><input type="radio" name="esc" value="${esc(x.id)}"${i?"":" checked"}> ${esc(rotulo(x))}</label>`).join("")}</div>`,ok:"Puxar",
+    validar:()=>{const r=document.querySelector('input[name="esc"]:checked');return r?r.value:false;}});
+  return id?itens.find(x=>x.id===id):null;
+}
+// venda: só puxa da aba Vendas (com saldo)
+async function puxarVenda(){
+  if(form.editando)return origemVenda();
+  const num=$("#cNum").value.trim().toUpperCase();
+  if(form.vendaId){const atual=vendas.find(v=>v.id===form.vendaId); if(atual&&(atual.numero||"").toUpperCase()===num)return; form.vendaId=null;}
+  if(!num){origemVenda();travarProduto();return;}
+  const achou=vendas.filter(v=>(v.numero||"").toUpperCase()===num&&(saldoVenda.get(v.id)||0)>0);
+  if(!achou.length){origemVenda();travarProduto();return;}
+  const v=await escolherEntre("Puxar contrato de venda",achou,rotuloVenda); if(!v){origemVenda();return;}
+  carregarVendaNoForm(v);
+}
+function carregarVendaNoForm(v){
+  form.vendaId=v.id; form.editando=false;
+  [...$("#prodPick").children].forEach(b=>b.disabled=false); setProduto(v.produto);
+  $("#cNum").value=v.numero||""; $("#cData").value=v.data||""; $("#cComp").value=v.comprador||""; $("#cCid").value=v.cidade||""; $("#cKg").value=toBR(v.volumeKg,0); $("#cPreco").value=toBR(v.preco,2);
+  // vínculos que a venda já tem (parcial) entram como linhas, para não se perderem
+  const atuais=(contratos.find(c=>c.id===v.id)||{vendedores:[]}).vendedores;
+  const digitadas=[...$("#vendBody").children].filter(tr=>tr.querySelector(".vNome").value.trim()||tr.querySelector(".vKg").value.trim()||tr.dataset.cid);
+  if(atuais.length){ const guardar=digitadas.map(tr=>tr); $("#vendBody").innerHTML=""; atuais.forEach(vendRow); guardar.forEach(tr=>$("#vendBody").appendChild(tr)); }
+  if(!$("#vendBody").children.length)vendRow();
+  [...$("#vendBody").children].forEach(marcarOrigem);
+  origemVenda(); travarProduto(); renderDatalists(); updatePreview();
+}
+// compra: só puxa da aba Compras (mesmo produto, com saldo livre)
+async function puxarCompra(tr){
+  const num=tr.querySelector(".vNum").value.trim().toUpperCase();
+  if(tr.dataset.cid){const atual=compras.find(c=>c.id===tr.dataset.cid); if(atual&&(atual.numero||"").toUpperCase()===num)return marcarOrigem(tr); tr.dataset.cid=""; tr.dataset.vid=""; tr.dataset.real="";}
+  if(!num){marcarOrigem(tr);travarProduto();return;}
+  const usadas=new Set([...$("#vendBody").children].filter(x=>x!==tr).map(x=>x.dataset.cid).filter(Boolean));
+  const mesmoNum=compras.filter(c=>(c.numero||"").toUpperCase()===num&&!usadas.has(c.id));
+  const achou=mesmoNum.filter(c=>c.produto===fProduto&&dispCompra(c.id)>0);
+  if(!achou.length){
+    const o=tr.querySelector(".orig");
+    if(mesmoNum.some(c=>c.produto!==fProduto)){o.className="orig erro";o.textContent=`essa compra é de ${PNAME[mesmoNum.find(c=>c.produto!==fProduto).produto]}`;}
+    else if(mesmoNum.length){o.className="orig erro";o.textContent="compra já toda vinculada";}
+    else marcarOrigem(tr);
+    travarProduto(); return;
+  }
+  const c=await escolherEntre("Puxar contrato de compra",achou,rotuloCompra); if(!c)return marcarOrigem(tr);
+  const venda=parseBR($("#cKg").value), outros=[...$("#vendBody").children].filter(x=>x!==tr).reduce((s,x)=>s+(parseBR(x.querySelector(".vKg").value)||0),0);
+  const resto=isN(venda)?venda-outros:Infinity, d=dispCompra(c.id);
+  tr.dataset.cid=c.id;
+  tr.querySelector(".vNum").value=c.numero||""; tr.querySelector(".vData").value=c.data||""; tr.querySelector(".vNome").value=c.produtor||""; tr.querySelector(".vCid").value=c.cidade||"";
+  tr.querySelector(".vPreco").value=toBR(c.preco,2); tr.querySelector(".vKg").value=toBR(resto>0?Math.min(d,resto):d,0);
+  marcarOrigem(tr); travarProduto(); renderDatalists(); updatePreview();
+  const f=tr.querySelector(".vFrete"); f.focus();
+}
+async function salvar(){
+  const {c,errs}=readForm(true);
+  if(errs.length){$("#formMsg").innerHTML=`<span class="prej">${esc(errs.join(" · "))}</span>`;return;}
+  if(!api.supabase){$("#formMsg").innerHTML=`<span class="prej">Supabase não configurado (js/config.js).</span>`;return;}
+  const btn=$("#btnSalvar"); btn.disabled=true; $("#formMsg").textContent="Salvando…";
+  try{
+    const eraEdicao=form.editando;
+    await api.salvarVinculacao(c);
+    await recarregar();
+    const sobra=(c.volumeKg||0)-c.vendedores.reduce((s,v)=>s+(v.volumeKg||0),0);
+    toast(eraEdicao?"Contrato atualizado.":sobra>0?`Contrato salvo. ${f0.format(sobra)} kg da venda continuam na aba Vendas.`:"Contrato salvo.");
+    resetForm(null); show("contratos");
+  }catch(e){ $("#formMsg").innerHTML=`<span class="prej">${esc(e.message||"Não foi possível salvar.")}</span>`; }
+  finally{btn.disabled=false;}
 }
 
 /* eventos das novas abas */
@@ -376,27 +416,23 @@ $("#cpCancelar").addEventListener("click",()=>limparForm("compras")); $("#vdCanc
   const ed=e.target.closest("[data-leditar]"), ex=e.target.closest("[data-lexcluir]"), vi=e.target.closest("[data-lvincular]");
   if(ed)editarForm(tipo,ed.dataset.leditar);
   if(ex)excluirDaLista(tipo,ex.dataset.lexcluir);
-  if(vi){ if(tipo==="vendas"){vnLimpar();vnCarregarVenda(vi.dataset.lvincular);}
-    else{ vnLimpar(); vn.compraPendente=vi.dataset.lvincular; const c=compras.find(x=>x.id===vn.compraPendente);
-      $("#vnEscolhaVenda").innerHTML=`<p class="note">Agora puxe a venda para vincular a compra <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.produtor)}, ${PNAME[c.produto]}).</p>`; }
-    show("vincular"); if(!vn.venda)setTimeout(()=>$("#vnVendaBusca").focus(),50); }
+  if(vi){ resetForm(null);
+    if(tipo==="vendas"){ const v=vendas.find(x=>x.id===vi.dataset.lvincular); if(v)carregarVendaNoForm(v); show("novo"); setTimeout(()=>$("#vendBody .vNum").focus(),50); }
+    else{ const c=compras.find(x=>x.id===vi.dataset.lvincular); if(c){ setProduto(c.produto); const tr=$("#vendBody tr"); tr.querySelector(".vNum").value=c.numero||""; show("novo"); puxarCompra(tr); setTimeout(()=>$("#cNum").focus(),50);} } }
 }));
-$("#vnPuxarVenda").addEventListener("click",vnPuxarVenda);
-$("#vnVendaBusca").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();vnPuxarVenda();}});
-$("#vnVendaBusca").addEventListener("change",()=>{const v=vendas.find(x=>rotuloVenda(x)===$("#vnVendaBusca").value);if(v)vnCarregarVenda(v.id);});
-$("#vnTrocarVenda").addEventListener("click",vnLimpar);
-$("#vnPuxarCompra").addEventListener("click",vnPuxarCompra);
-$("#vnCompraBusca").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();vnPuxarCompra();}});
-$("#vnCompraBusca").addEventListener("change",()=>{const c=compras.find(x=>rotuloCompra(x)===$("#vnCompraBusca").value);if(c)vnAdicionarCompra(c.id);});
-$("#vnCompras").addEventListener("input",e=>{const tr=e.target.closest("tr[data-i]");if(!tr)return;const l=vn.linhas[+tr.dataset.i];
-  if(e.target.classList.contains("vnKg")){l.volumeKg=parseBR(e.target.value);tr.children[6].textContent=isN(l.volumeKg)?N2(sc(l.volumeKg,vendas.find(x=>x.id===vn.venda).produto)):"";}
-  if(e.target.classList.contains("vnFrete"))l.fretePrev=parseBR(e.target.value);
-  vnSaldoEPrevia();});
-$("#vnCompras").addEventListener("change",e=>{if(e.target.classList.contains("vnKg"))setTimeout(vnAtualizar,0);});
-$("#vnCompras").addEventListener("click",e=>{const b=e.target.closest(".vnDel");if(!b)return;vn.linhas.splice(+b.closest("tr").dataset.i,1);vnAtualizar();});
-$("#vnSalvar").addEventListener("click",vnSalvar);
-$("#vnCancelar").addEventListener("click",()=>{vnLimpar();show("contratos");});
-limparForm("compras"); limparForm("vendas");
+$("#prodPick").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&!b.disabled)setProduto(b.dataset.p);});
+$("#addVend").addEventListener("click",()=>{const tr=vendRow();updatePreview();tr.querySelector(".vNum").focus();});
+$("#vendBody").addEventListener("click",e=>{if(e.target.closest(".vDel")){e.target.closest("tr").remove();if(!$("#vendBody").children.length)vendRow();travarProduto();renderDatalists();updatePreview();}});
+$("#vendBody").addEventListener("change",e=>{if(e.target.classList.contains("vNum"))puxarCompra(e.target.closest("tr"));});
+$("#vendBody").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classList.contains("vNum")){e.preventDefault();e.target.blur();}});
+$("#vendBody").addEventListener("input",e=>{if(e.target.classList.contains("vNome")||e.target.classList.contains("vNum")){const tr=e.target.closest("tr");if(!tr.dataset.cid)marcarOrigem(tr);}});
+$("#cNum").addEventListener("change",puxarVenda);
+$("#cNum").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#cNum").blur();}});
+$("#cComp").addEventListener("input",()=>{if(!form.vendaId)origemVenda();});
+$("#v-novo").addEventListener("input",updatePreview);
+$("#btnSalvar").addEventListener("click",salvar);
+$("#btnCancelar").addEventListener("click",()=>{resetForm(null);show("contratos");});
+limparForm("compras"); limparForm("vendas"); resetForm(null);
 
 /* ---------------- parâmetros ---------------- */
 function renderParams(){
@@ -413,22 +449,22 @@ async function saveParams(){
 
 /* ---------------- navegação / eventos ---------------- */
 function show(v){
-  if(v==="vincular"&&!podeEditar())v="contratos";
+  if(v==="novo"&&!podeEditar())v="contratos";
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));[...$("#nav").children].forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   $("#posicao").hidden=!["contratos","compras","vendas"].includes(v);
   if(v==="param")renderParams(); if(v==="usuarios")carregarUsuarios();
   if(v==="contratos"){renderKpis();renderTable();} if(v==="compras")renderCompras(); if(v==="vendas")renderVendas();
   window.scrollTo(0,0);}
 function renderAll(){renderPosicao();renderKpis();renderTable();renderCompras();renderVendas();renderDatalists();
-  if($("#v-vincular").classList.contains("on"))vnAtualizar();}
+  if($("#v-novo").classList.contains("on")){[...$("#vendBody").children].forEach(marcarOrigem);origemVenda();}}
 
-$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="vincular"&&!vn.venda)vnLimpar();show(b.dataset.v);});
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="novo"&&!form.editando&&!$("#formMsg").textContent&&!$("#cComp").value)resetForm(null);show(b.dataset.v);});
 $("#fProd").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;fProd=b.dataset.p;[...$("#fProd").children].forEach(x=>x.classList.toggle("on",x===b));renderKpis();renderTable();});
 $("#fStatus").addEventListener("change",renderTable); $("#fBusca").addEventListener("input",renderTable);
 $("#btnCopy").addEventListener("click",copyTable);
 $("#tbl").addEventListener("click",e=>{
   const ed=e.target.closest("[data-edit]"), dl=e.target.closest("[data-del]");
-  if(ed){vnCarregarVenda(ed.dataset.edit);show("vincular");}
+  if(ed){const c=contratos.find(x=>x.id===ed.dataset.edit);if(c){resetForm(c);show("novo");}}
   if(dl){const c=contratos.find(x=>x.id===dl.dataset.del);if(!c)return;
     dialogo({titulo:"Desvincular contrato?",html:`A venda <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.comprador)}) e as ${c.vendedores.length} compra(s) vinculadas a ela voltam para as abas <b>Vendas</b> e <b>Compras</b>. Nenhum contrato é apagado.${c.vendedores.some(v=>v.freteReal!=null)?"<br><br><b>Atenção:</b> os fretes realizados lançados nesses vínculos serão perdidos.":""}`,ok:"Desvincular",perigo:true})
       .then(async ok=>{ if(!ok)return; try{await api.salvarVinculos(c.id,[]); await recarregar(); toast("Contratos desvinculados.");}catch(e){toast(e.message);} });}
@@ -594,7 +630,7 @@ $("#btnEsqueci").addEventListener("click",async()=>{
 });
 $("#btnSair").addEventListener("click",()=>api.sair());
 
-vnLimpar(); renderAll();
+renderAll();
 
 if(!api.configurado){
   loaded=true; renderAll();

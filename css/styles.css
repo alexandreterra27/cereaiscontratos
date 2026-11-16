@@ -153,3 +153,12 @@ table.grid tr.buyer td.saldo-neg{color:var(--prej)}
 .stack>*{min-width:0}
 nav button{padding:7px 11px;font-size:13.5px}
 header h1{font-size:16px}
+
+.origem{margin-top:8px;font-size:12.5px}
+.origem:empty{display:none}
+.origem .tag{margin-right:6px}
+td .orig{display:block;font-size:10.5px;font-weight:600;margin-top:2px;white-space:nowrap}
+td .orig.puxado{color:var(--brand)}
+td .orig.novo{color:var(--muted);font-weight:500}
+td .orig.erro{color:var(--prej)}
+tr.puxado td{background:#f3f8f1}

@@ -150,6 +150,26 @@ export async function salvarVinculos(vendaId, lista) {
   if (error) throw falha(error, "Não foi possível salvar a vinculação.");
 }
 
+/**
+ * Tela "Inserir contrato": grava venda (nova ou puxada) + linhas de vendedores
+ * (compras novas ou puxadas da aba Compras) + vínculos, numa só operação.
+ */
+export async function salvarVinculacao(c) {
+  const { data, error } = await supabase.rpc("salvar_vinculacao", {
+    p_venda: {
+      id: c.id || null, produto: c.produto, data: c.data || null, numero: c.numero || "", comprador: c.comprador,
+      cidade_entrega: c.cidade || "", volume_kg: c.volumeKg, preco: c.preco,
+    },
+    p_linhas: (c.vendedores || []).map((v) => ({
+      id: v.id || null, compra_id: v.compraId || null, data: v.data || null, numero: v.numero || "",
+      produtor: v.nome, cidade_retirada: v.cidade || "", volume_kg: v.volumeKg, preco: v.preco,
+      frete_previsto: v.fretePrev, frete_realizado: v.freteReal,
+    })),
+  });
+  if (error) throw falha(error, "Não foi possível salvar o contrato.");
+  return data;
+}
+
 export async function salvarFreteRealizado(vinculoId, valor) {
   const { data, error } = await supabase
     .from("vinculos")
