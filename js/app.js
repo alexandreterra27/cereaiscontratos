@@ -147,15 +147,51 @@ const opt=x=>`<option value="${esc(x)}">`;
 function renderPosicao(){
   const p=calcularPosicao(vendas,compras,vinculos,params), T=p.total;
   const n=v=>f0.format(Math.round(v));
-  const linha=(nome,L,cls="")=>`<tr class="${cls}"><td>${nome}</td><td>${n(L.comprado)}</td><td>${n(L.vendido)}</td>`+
-    `<td class="${L.compradoSemVenda>0.5?"alerta":""}">${n(L.compradoSemVenda)}${L.nCompras?`<span class="sub">${L.nCompras} contrato(s)</span>`:""}</td>`+
-    `<td class="${L.vendidoSemCompra>0.5?"alerta":""}">${n(L.vendidoSemCompra)}${L.nVendas?`<span class="sub">${L.nVendas} contrato(s)</span>`:""}</td></tr>`;
-  const exc=T.excesso>0.5?`<p class="note prej" style="margin:8px 0 0">⚠ Há ${n(T.excesso)} sc vinculados além do volume de algum contrato. Procure o ⚠ na aba Contratos e ajuste o volume do vínculo.</p>`:"";
+  const cel=(pr,col,html,cls="")=>`<td class="clic ${cls}" data-pp="${pr}" data-col="${col}" title="Clique para ver os contratos">${html}</td>`;
+  const linha=(nome,L,pr,cls="")=>`<tr class="${cls}"><td>${nome}</td>${cel(pr,"comprado",n(L.comprado))}${cel(pr,"vendido",n(L.vendido))}`+
+    cel(pr,"semVenda",`${n(L.compradoSemVenda)}${L.nCompras?`<span class="sub">${L.nCompras} contrato(s)</span>`:""}`,L.compradoSemVenda>0.5?"alerta":"")+
+    cel(pr,"semCompra",`${n(L.vendidoSemCompra)}${L.nVendas?`<span class="sub">${L.nVendas} contrato(s)</span>`:""}`,L.vendidoSemCompra>0.5?"alerta":"")+`</tr>`;
+  const exc=T.excesso>0.5?`<p class="note prej clic" data-pp="total" data-col="excesso" style="margin:8px 0 0" title="Clique para ver os contratos">⚠ Há ${n(T.excesso)} sc vinculados além do volume de algum contrato. <u>Clique aqui para ver quais</u>.</p>`:"";
   $("#posicao").innerHTML=`<h3 class="kpi" tabindex="0" style="cursor:help;position:relative;border:0;padding:0;background:none">Posição por produto (sacas) <span class="ico">i</span><div class="tip">${esc(TIPS["Posição por produto"])}</div></h3>
     <table><thead><tr><th>Produto</th><th>Total comprado</th><th>Total vendido</th><th>Comprado sem venda</th><th>Vendido sem compra</th></tr></thead><tbody>
-    ${PRODS.map(pr=>linha(prodTag(pr),p.porProduto[pr])).join("")}${linha("<b>Total</b>",T,"tot")}</tbody></table>${exc}`;
+    ${PRODS.map(pr=>linha(prodTag(pr),p.porProduto[pr],pr)).join("")}${linha("<b>Total</b>",T,"total","tot")}</tbody></table><p class="note" style="margin:6px 0 0">Clique em qualquer número para ver os contratos que formam o valor.</p>${exc}`;
   $("#cntCompras").textContent=compras.filter(c=>(saldoCompra.get(c.id)||0)>0).length||"";
   $("#cntVendas").textContent=vendas.filter(v=>(saldoVenda.get(v.id)||0)>0).length||"";
+}
+
+/* detalhe ao clicar na posição */
+const TIT_COL={comprado:"Total comprado",vendido:"Total vendido",semVenda:"Comprado sem venda",semCompra:"Vendido sem compra",excesso:"Vinculado a mais que o volume do contrato"};
+function detalhePosicao(pr,col){
+  const doProd=x=>pr==="total"||x.produto===pr;
+  const listaC=compras.filter(doProd).map(c=>({tipo:"compra",x:c,saldo:saldoCompra.get(c.id)||0}));
+  const listaV=vendas.filter(doProd).map(v=>({tipo:"venda",x:v,saldo:saldoVenda.get(v.id)||0}));
+  let itens, explica;
+  if(col==="comprado"){itens=listaC; explica="Todos os contratos de compra. A coluna Saldo mostra o que ainda não tem venda.";}
+  else if(col==="vendido"){itens=listaV; explica="Todos os contratos de venda. A coluna Saldo mostra o que ainda não tem compra.";}
+  else if(col==="semVenda"){itens=listaC.filter(i=>Math.abs(i.saldo)>0.0005); explica="Compras com volume ainda sem venda vinculada (estão na aba Compras).";}
+  else if(col==="semCompra"){itens=listaV.filter(i=>Math.abs(i.saldo)>0.0005); explica="Vendas com volume ainda sem compra vinculada (estão na aba Vendas).";}
+  else {itens=[...listaC,...listaV].filter(i=>i.saldo<-0.0005); explica="Contratos com mais volume vinculado do que o próprio volume. Ajuste o volume do vínculo em Editar.";}
+  itens.sort((a,b)=>(b.saldo>0)-(a.saldo>0)||b.saldo-a.saldo||porData(a.x,b.x));
+  const tot={vol:0,saldo:0,falta:0,sobra:0};
+  const linhas=itens.map(i=>{const x=i.x, kg=kgS(x.produto), vinc=(x.volumeKg||0)-i.saldo;
+    tot.vol+=x.volumeKg/kg; tot.saldo+=i.saldo/kg; if(i.saldo>0)tot.falta+=i.saldo/kg; else tot.sobra+=-i.saldo/kg;
+    const sit=i.saldo>0.0005?`<span class="tag pill-w">falta ${f0.format(i.saldo/kg)} sc</span>`:i.saldo<-0.0005?`<span class="tag pill-p">sobra ${f0.format(-i.saldo/kg)} sc</span>`:`<span class="tag pill-l">100% vinculado</span>`;
+    const acao=podeEditar()&&i.saldo>0.0005?`<button class="btn sm pri" data-dv="${i.tipo}|${esc(x.id)}">Vincular</button>`:i.saldo<-0.0005&&i.tipo==="venda"&&podeEditar()?`<button class="btn sm" data-de="${esc(x.id)}">Corrigir</button>`:"";
+    return `<tr><td>${prodTag(x.produto)}</td><td>${i.tipo==="compra"?"Compra":"Venda"}</td><td><b>${esc(x.numero||"s/ nº")}</b></td><td>${D(x.data)}</td><td>${esc(i.tipo==="compra"?x.produtor:x.comprador)}</td><td>${esc(x.cidade||"")}</td>`+
+      `<td class="n">${f0.format(x.volumeKg/kg)}</td><td class="n">${f0.format(vinc/kg)}</td><td class="n">${f0.format(i.saldo/kg)}</td><td>${sit}</td><td>${isN(x.preco)?R(x.preco):'<span class="fx">A FIXAR</span>'}</td><td>${acao}</td></tr>`;}).join("");
+  const nomeProd=pr==="total"?"Todos os produtos":PNAME[pr];
+  const html=`<p class="note" style="margin:0 0 10px">${explica}</p>`+(itens.length?
+    `<div class="tablewrap" style="max-height:60vh"><table class="grid det"><thead><tr><th>Produto</th><th>Tipo</th><th>Nº contrato</th><th>Data</th><th>${col==="comprado"||col==="semVenda"?"Produtor":col==="excesso"?"Produtor / comprador":"Comprador"}</th><th>Cidade</th><th>Volume (sc)</th><th>Vinculado (sc)</th><th>Saldo (sc)</th><th>Situação</th><th>Preço</th><th></th></tr></thead><tbody>${linhas}`+
+    `<tr class="resumo"><td></td><td></td><td>${itens.length} contrato(s)</td><td></td><td></td><td></td><td class="n">${f0.format(tot.vol)}</td><td></td><td class="n">${f0.format(tot.saldo)}</td><td>${tot.falta>0.5?`falta ${f0.format(tot.falta)} sc`:""}${tot.falta>0.5&&tot.sobra>0.5?" · ":""}${tot.sobra>0.5?`sobra ${f0.format(tot.sobra)} sc`:""}</td><td></td><td></td></tr></tbody></table></div>`
+    :`<p class="empty" style="padding:20px">Nenhum contrato aqui. 👍</p>`);
+  dialogo({titulo:`${TIT_COL[col]} · ${nomeProd}`,html,ok:"Fechar",largo:true,soFechar:true});
+  $("#mText").onclick=e=>{
+    const v=e.target.closest("[data-dv]"), c=e.target.closest("[data-de]");
+    if(v){const [tipo,id]=v.dataset.dv.split("|"); $("#mYes").click(); resetForm(null);
+      if(tipo==="venda"){const x=vendas.find(y=>y.id===id); if(x)carregarVendaNoForm(x); show("novo"); setTimeout(()=>{const n=$("#vendBody .vNum");if(n)n.focus();},50);}
+      else{const x=compras.find(y=>y.id===id); if(x){setProduto(x.produto); const tr=$("#vendBody tr"); tr.querySelector(".vNum").value=x.numero||""; show("novo"); puxarCompra(tr); setTimeout(()=>$("#cNum").focus(),50);}}}
+    if(c){$("#mYes").click(); const x=contratos.find(y=>y.id===c.dataset.de); if(x){resetForm(x);show("novo");}}
+  };
 }
 
 function renderDatalists(){
@@ -462,6 +498,7 @@ $("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)
 $("#fProd").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;fProd=b.dataset.p;[...$("#fProd").children].forEach(x=>x.classList.toggle("on",x===b));renderKpis();renderTable();});
 $("#fStatus").addEventListener("change",renderTable); $("#fBusca").addEventListener("input",renderTable);
 $("#btnCopy").addEventListener("click",copyTable);
+$("#posicao").addEventListener("click",e=>{const td=e.target.closest(".clic");if(td)detalhePosicao(td.dataset.pp,td.dataset.col);});
 $("#tbl").addEventListener("click",e=>{
   const ed=e.target.closest("[data-edit]"), dl=e.target.closest("[data-del]");
   if(ed){const c=contratos.find(x=>x.id===ed.dataset.edit);if(c){resetForm(c);show("novo");}}
@@ -511,14 +548,15 @@ async function iniciarSessao(sessao){
 }
 
 /* ---------------- diálogo genérico ---------------- */
-function dialogo({titulo,html,ok="Salvar",perigo=false,validar}){
+function dialogo({titulo,html,ok="Salvar",perigo=false,validar,largo=false,soFechar=false}){
   return new Promise(res=>{
     $("#mTitle").textContent=titulo; $("#mText").innerHTML=html;
     const yes=$("#mYes"), no=$("#mNo"), txt=yes.textContent;
+    $("#modal").classList.toggle("largo",largo); no.hidden=soFechar;
     yes.textContent=ok; yes.classList.toggle("danger",perigo); yes.classList.toggle("pri",!perigo);
     $("#modal").classList.add("on");
     const primeiro=$("#mText").querySelector("input"); if(primeiro)setTimeout(()=>primeiro.focus(),50);
-    const fim=v=>{$("#modal").classList.remove("on");yes.textContent=txt;yes.classList.add("danger");yes.classList.remove("pri");yes.onclick=null;no.onclick=null;res(v);};
+    const fim=v=>{$("#modal").classList.remove("on");$("#modal").classList.remove("largo");no.hidden=false;yes.textContent=txt;yes.classList.add("danger");yes.classList.remove("pri");yes.onclick=null;no.onclick=null;res(v);};
     yes.onclick=()=>{ const r=validar?validar():true; if(r===false)return; fim(r); };
     no.onclick=()=>fim(null);
   });

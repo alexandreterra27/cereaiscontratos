@@ -162,3 +162,13 @@ td .orig.puxado{color:var(--brand)}
 td .orig.novo{color:var(--muted);font-weight:500}
 td .orig.erro{color:var(--prej)}
 tr.puxado td{background:#f3f8f1}
+
+/* posição clicável + modal largo */
+.posicao td.clic,.posicao .clic{cursor:pointer;border-radius:6px;transition:background .12s}
+.posicao td.clic:hover{background:#eef5ec;box-shadow:inset 0 0 0 1px #b9d3b4}
+.posicao td.clic:hover::after{content:" 🔍";font-size:10px}
+.modal.largo .box{max-width:min(1200px,96vw)}
+.modal .box{max-height:92vh;overflow:auto}
+table.grid.det td{font-size:12.5px}
+.pill-w{background:var(--warn-bg);color:var(--warn)}
+.modal.largo #mText{color:var(--ink)}
