@@ -66,7 +66,7 @@ function renderTable(){
     h+=`<tr class="buyer"><td>${prodTag(c.produto)}</td><td>COMPRADOR</td><td>${D(c.data)}</td><td>${esc(c.numero)}</td><td>${esc(c.comprador)}</td><td>${esc(c.cidade)}</td>`+
       `<td class="n">${N0(c.volumeKg)}</td><td class="n">${N2(k.bSc)}</td>${cN(k.Pb,R,1)}${cN(k.bValor,R,1)}<td></td><td></td><td></td><td></td>`+
       `<td class="n${k.saldoKg<0?" saldo-neg":""}"${k.saldoKg<0?` title="Vinculado ${f0.format(-k.saldoKg)} kg a mais que o volume da venda"`:""}>${N0(k.saldoKg)}${k.saldoKg<0?" ⚠":""}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
-      `<td><div class="actions"><button class="btn sm so-edicao" data-edit="${esc(c.id)}">Editar vínculos</button><button class="btn sm danger so-edicao" data-del="${esc(c.id)}">Desvincular</button></div></td></tr>`;
+      `<td><div class="actions"><button class="btn sm so-edicao" data-edit="${esc(c.id)}">Editar</button><button class="btn sm so-edicao" data-del="${esc(c.id)}">Desvincular</button><button class="btn sm danger so-edicao" data-excluir="${esc(c.id)}">Excluir</button></div></td></tr>`;
     k.vs.forEach(x=>{
       const v=x.v;
       h+=`<tr><td></td><td>VENDEDOR</td><td>${D(v.data)}</td><td>${esc(v.numero)}</td><td>${esc(v.nome)}</td><td>${esc(v.cidade||"")}</td>`+
@@ -355,7 +355,7 @@ function updatePreview(){
   $("#preview").innerHTML=h;
 }
 function setProduto(p){fProduto=p;[...$("#prodPick").children].forEach(b=>b.classList.toggle("on",b.dataset.p===p));renderDatalists();updatePreview();}
-function travarProduto(){const trava=!!form.vendaId||[...$("#vendBody").children].some(tr=>tr.dataset.cid);[...$("#prodPick").children].forEach(b=>b.disabled=trava&&!b.classList.contains("on"));}
+function travarProduto(){const trava=!form.editando&&(!!form.vendaId||[...$("#vendBody").children].some(tr=>tr.dataset.cid));[...$("#prodPick").children].forEach(b=>b.disabled=trava&&!b.classList.contains("on"));}
 function origemVenda(){
   const el=$("#cOrigem");
   if(!form.vendaId){el.innerHTML=$("#cNum").value.trim()||$("#cComp").value.trim()?'<span class="note">Contrato de venda novo: será criado ao salvar.</span>':"";return;}
@@ -456,7 +456,11 @@ $("#cpCancelar").addEventListener("click",()=>limparForm("compras")); $("#vdCanc
     if(tipo==="vendas"){ const v=vendas.find(x=>x.id===vi.dataset.lvincular); if(v)carregarVendaNoForm(v); show("novo"); setTimeout(()=>$("#vendBody .vNum").focus(),50); }
     else{ const c=compras.find(x=>x.id===vi.dataset.lvincular); if(c){ setProduto(c.produto); const tr=$("#vendBody tr"); tr.querySelector(".vNum").value=c.numero||""; show("novo"); puxarCompra(tr); setTimeout(()=>$("#cNum").focus(),50);} } }
 }));
-$("#prodPick").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&!b.disabled)setProduto(b.dataset.p);});
+$("#prodPick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.disabled||b.dataset.p===fProduto)return;
+  setProduto(b.dataset.p);
+  if(form.editando){const orig=vendas.find(v=>v.id===form.vendaId);
+    $("#cOrigem").innerHTML=orig&&orig.produto!==fProduto?`<span class="tag pill-w">produto alterado</span><span class="note">Ao salvar, a venda e as compras desta tela passam de ${PNAME[orig.produto]} para <b>${PNAME[fProduto]}</b>.</span>`:"";
+    if(!$("#cOrigem").innerHTML)origemVenda();}});
 $("#addVend").addEventListener("click",()=>{const tr=vendRow();updatePreview();tr.querySelector(".vNum").focus();});
 $("#vendBody").addEventListener("click",e=>{if(e.target.closest(".vDel")){e.target.closest("tr").remove();if(!$("#vendBody").children.length)vendRow();travarProduto();renderDatalists();updatePreview();}});
 $("#vendBody").addEventListener("change",e=>{if(e.target.classList.contains("vNum"))puxarCompra(e.target.closest("tr"));});
@@ -502,6 +506,18 @@ $("#posicao").addEventListener("click",e=>{const td=e.target.closest(".clic");if
 $("#tbl").addEventListener("click",e=>{
   const ed=e.target.closest("[data-edit]"), dl=e.target.closest("[data-del]");
   if(ed){const c=contratos.find(x=>x.id===ed.dataset.edit);if(c){resetForm(c);show("novo");}}
+  const ex=e.target.closest("[data-excluir]");
+  if(ex){const c=contratos.find(x=>x.id===ex.dataset.excluir);if(!c)return;
+    const ids=[...new Set(c.vendedores.map(v=>v.compraId))];
+    const soDela=ids.filter(id=>!vinculos.some(l=>l.compraId===id&&l.vendaId!==c.id));
+    const compartilhadas=ids.length-soDela.length;
+    const nomes=c.vendedores.filter(v=>soDela.includes(v.compraId)).map(v=>`${esc(v.numero||"s/ nº")} · ${esc(v.nome)}`);
+    dialogo({titulo:"Excluir contrato?",perigo:true,ok:"Excluir",
+      html:`O contrato de venda <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.comprador)}, ${PNAME[c.produto]}) será apagado de vez, com seus vínculos e fretes lançados.`+
+        (soDela.length?`<label class="chk" style="margin-top:12px;color:var(--ink);font-size:13px;align-items:flex-start"><input type="checkbox" id="exCompras" checked style="margin-top:3px"> <span>Excluir também ${soDela.length===1?"o contrato de compra":"os "+soDela.length+" contratos de compra"} deste contrato:<br><span class="note">${nomes.join("<br>")}</span><br><span class="note">Se desmarcar, ${soDela.length===1?"ele volta":"eles voltam"} para a aba Compras.</span></span></label>`:"")+
+        (compartilhadas?`<p class="note" style="margin-top:10px">${compartilhadas} compra(s) também ligada(s) a outra venda não serão apagadas, só perdem o vínculo com este contrato.</p>`:""),
+      validar:()=>{const cb=document.getElementById("exCompras");return {comCompras:cb?cb.checked:false};}})
+    .then(async r=>{ if(!r)return; try{const n=await api.excluirContrato(c.id,r.comCompras); await recarregar(); toast(n?`Contrato excluído, com ${n} compra(s).`:"Contrato excluído.");}catch(err){toast(err.message);} });}
   if(dl){const c=contratos.find(x=>x.id===dl.dataset.del);if(!c)return;
     dialogo({titulo:"Desvincular contrato?",html:`A venda <b>${esc(c.numero||"s/ nº")}</b> (${esc(c.comprador)}) e as ${c.vendedores.length} compra(s) vinculadas a ela voltam para as abas <b>Vendas</b> e <b>Compras</b>. Nenhum contrato é apagado.${c.vendedores.some(v=>v.freteReal!=null)?"<br><br><b>Atenção:</b> os fretes realizados lançados nesses vínculos serão perdidos.":""}`,ok:"Desvincular",perigo:true})
       .then(async ok=>{ if(!ok)return; try{await api.salvarVinculos(c.id,[]); await recarregar(); toast("Contratos desvinculados.");}catch(e){toast(e.message);} });}

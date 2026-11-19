@@ -170,6 +170,13 @@ export async function salvarVinculacao(c) {
   return data;
 }
 
+/** Exclui o contrato de venda; com comCompras, apaga também as compras que ficarem sem vínculo. */
+export async function excluirContrato(vendaId, comCompras) {
+  const { data, error } = await supabase.rpc("excluir_contrato", { p_venda_id: vendaId, p_excluir_compras: !!comCompras });
+  if (error) throw falha(error, "Não foi possível excluir o contrato.");
+  return data || 0;
+}
+
 export async function salvarFreteRealizado(vinculoId, valor) {
   const { data, error } = await supabase
     .from("vinculos")
